@@ -16,7 +16,7 @@ export default function Register({ onToggle }: { onToggle: () => void }) {
     setLoading(true)
 
     try {
-      // ✅ 1. CREATE AUTH USER (THIS HANDLES PASSWORD SECURELY)
+      // ✅ 1. CREATE AUTH USER
       const { data, error } = await supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.password.trim(),
@@ -32,13 +32,13 @@ export default function Register({ onToggle }: { onToggle: () => void }) {
       const user = data.user
       if (!user) throw new Error("User not created")
 
-      // ✅ 2. INSERT INTO USERS TABLE (NO PASSWORD HERE)
+      // ✅ 2. INSERT INTO USERS TABLE (NO PASSWORD STORED)
       const { error: dbError } = await supabase
         .from('users')
         .upsert({
           id: user.id,
           name: formData.name,
-          email: formData.email
+          email: formData.email.trim()
         })
 
       if (dbError) {
