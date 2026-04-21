@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Login from './components/Login'
-import Register from './components/Register'
-
+import Register from "./Register";
 export default function Auth() {
   const [showRegister, setShowRegister] = useState(false)
 
