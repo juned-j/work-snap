@@ -1,11 +1,14 @@
+export {}
+
 declare global {
   interface Window {
     electron: {
       startSession: () => Promise<any>
       stopSession: () => Promise<any>
-      captureScreenshot: (sessionId: string) => Promise<string>
+      captureScreenshot: () => Promise<string>
+
+      // 🔥 ADD THIS
+      getSystemIdleTime: () => Promise<number>
     }
   }
 }
-
-export {}
