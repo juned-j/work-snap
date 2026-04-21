@@ -5,15 +5,13 @@ let mainWindow
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    fullscreen: true,
-    autoHideMenuBar: true,
-    backgroundColor: '#0f172a',
+    width: 1200,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true
     }
   })
-
 
   mainWindow.loadURL('http://localhost:5176')
 }
