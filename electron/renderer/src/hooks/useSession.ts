@@ -14,7 +14,6 @@ export const useSession = () => {
 
   const IDLE_THRESHOLD = 60
 
-  // ================= NOTIFICATION =================
   const sendNotification = (title: string, body: string) => {
     if (Notification.permission === 'granted') {
       new Notification(title, { body })
@@ -25,89 +24,101 @@ export const useSession = () => {
     Notification.requestPermission()
   }, [])
 
- const uploadScreenshot = async () => {
+const uploadScreenshot = async () => {
   try {
-    if (!session) return
+    if (!session || !session.id) return;
 
-    const base64: string = await window.electron.captureScreenshot()
-    if (!base64) return
+    const base64: string = await window.electron.captureScreenshot();
+    if (!base64) return;
 
-    // 🔥 convert base64 → binary safely (NO Buffer needed)
-    const byteCharacters = atob(base64)
-    const byteNumbers = new Array(byteCharacters.length)
-
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i)
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/png' });
+
+    const fileName = `${session.id}/${Date.now()}.png`;
+
+    const { error: storageError } = await supabase.storage
+      .from('screenshots')
+      .upload(fileName, blob);
+
+    if (storageError) {
+      console.error("Storage Error:", storageError.message);
+      return;
     }
 
-    const byteArray = new Uint8Array(byteNumbers)
-
-    const blob = new Blob([byteArray], { type: 'image/png' })
-
-    const fileName = `${session.id}/${Date.now()}.png`
-
-    const { error } = await supabase.storage
+    const { data: urlData } = supabase.storage
       .from('screenshots')
-      .upload(fileName, blob)
+      .getPublicUrl(fileName);
 
-    if (error) return console.error(error.message)
+    const { error: dbError } = await supabase
+      .from('screenshots')
+      .insert({
+        session_id: Number(session.id), 
+        user_id: session.user_id,      
+        image_url: urlData.publicUrl,   
+        captured_at: new Date().toISOString()
+      });
 
-    await supabase.from('screenshots').insert({
-      session_id: session.id,
-      image_path: fileName
-    })
+    if (dbError) {
+      console.error("Database Insert Error (400):", dbError.message);
+    } else {
+      console.log("Screenshot synced successfully! 📸");
+    }
 
   } catch (err) {
-    console.error(err)
+    console.error("Upload failed:", err);
   }
 }
 
-  // ================= START =================
-  const start = async () => {
-    try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData?.user) return alert('Login required')
+const start = async () => {
+  try {
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData?.user) return alert('Login required')
 
-      const { data: existing } = await supabase
-        .from('work_sessions')
-        .select('*')
-        .eq('user_id', authData.user.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
+    const { data: existing } = await supabase
+      .from('work_sessions')
+      .select('*')
+      .eq('user_id', authData.user.id)
+      .eq('is_active', true)
+      .order('id', { ascending: false }) 
+      .limit(1)
 
-      if (existing && existing.length > 0) {
-        setSession(existing[0])
-        setStatus('active')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('work_sessions')
-        .insert({
-          user_id: authData.user.id,
-          start_time: new Date().toISOString(),
-          is_active: true
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      setSession(data)
+    if (existing && existing.length > 0) {
+      setSession(existing[0])
       setStatus('active')
-
-      if (window.electron?.startSession) {
-        await window.electron.startSession()
-      }
-
-    } catch (err: any) {
-      console.error(err)
-      alert(err.message)
+      return
     }
-  }
 
-  // ================= STOP =================
+    const { data, error } = await supabase
+      .from('work_sessions')
+      .insert({
+        user_id: authData.user.id,
+        start_time: new Date().toISOString(),
+        is_active: true,
+        status: 'active' 
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    setSession(data)
+    setStatus('active')
+
+    if (window.electron?.startSession) {
+      await window.electron.startSession()
+    }
+
+  } catch (err: any) {
+    console.error(err)
+    alert(err.message)
+  }
+}
+
   const stop = async () => {
     if (!session) return
 
@@ -142,13 +153,12 @@ useEffect(() => {
       
       if (!currentUserId) return
 
-      // 2. Query: 'created_at' ki jagah 'id' use kiya hai ordering ke liye
       const { data, error } = await supabase
         .from('work_sessions')
         .select('*')
         .eq('user_id', currentUserId)
         .eq('is_active', true)
-        .order('id', { ascending: false }) // 👈 Fixed: Aapke schema mein 'id' auto-increment hai
+        .order('id', { ascending: false }) 
         .limit(1)
 
       if (error) {
@@ -162,7 +172,6 @@ useEffect(() => {
         setSession(active)
         setStatus('active')
 
-        // 🔥 Timer Fix: Refresh ke baad gap calculate karna
         const startTime = new Date(active.start_time).getTime()
         const now = Date.now()
         const diffInSeconds = Math.floor((now - startTime) / 1000)
@@ -201,7 +210,6 @@ useEffect(() => {
   }
 }, [session, status])
 
-  // ================= AUTO IDLE (APP LEVEL - KEEP) =================
   useEffect(() => {
     if (!session || status === 'stopped') return
 
