@@ -8,6 +8,8 @@ export const useSession = () => {
   const [status, setStatus] = useState<'idle' | 'active' | 'paused' | 'stopped'>('idle')
   const [elapsedTime, setElapsedTime] = useState(0)
 
+  // Session ki latest state track karne ke liye Ref (Fix for Screenshot Interval)
+  const sessionRef = useRef<any>(null)
   const timerRef = useRef<any>(null)
   const idleTimerRef = useRef<any>(null)
   const screenshotRef = useRef<any>(null)
@@ -15,6 +17,11 @@ export const useSession = () => {
 
   const { sendNotification, requestPermission } = useNotifications()
   const IDLE_THRESHOLD = 60
+
+  // Jab bhi session update ho, ref ko bhi update karein
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
 
   useEffect(() => {
     requestPermission()
@@ -41,14 +48,17 @@ export const useSession = () => {
 
   const uploadScreenshot = async () => {
     try {
-      if (!session?.id) return
+      // Session ki latest value Ref se uthayein (Stale Closure Fix)
+      const currentSession = sessionRef.current
+      if (!currentSession?.id) return
+
       const base64: string = await window.electron.captureScreenshot()
       if (!base64) return
 
       const response = await fetch(`data:image/png;base64,${base64}`)
       const blob = await response.blob()
 
-      await sessionService.uploadScreenshot(Number(session.id), session.user_id, blob)
+      await sessionService.uploadScreenshot(Number(currentSession.id), currentSession.user_id, blob)
       console.log("Screenshot synced successfully! 📸")
     } catch (err: any) {
       console.error("Upload failed:", err.message)
@@ -150,12 +160,15 @@ export const useSession = () => {
   // Auto Screenshot Effect
   useEffect(() => {
     if (status === 'active' && session) {
+      uploadScreenshot()
+      
+     
       screenshotRef.current = setInterval(uploadScreenshot, 60000)
     } else {
       clearInterval(screenshotRef.current)
     }
     return () => clearInterval(screenshotRef.current)
-  }, [status, session])
+  }, [status, !!session]) 
 
   return { start, stop, pause: () => setStatus(p => p === 'paused' ? 'active' : 'paused'), session, status, elapsedTime }
 }
