@@ -10,6 +10,8 @@ export const useSession = () => {
   const idleTimerRef = useRef<any>(null)
   const screenshotRef = useRef<any>(null)
 
+  const systemIdleRef = useRef<any>(null) // 🔥 NEW
+
   const IDLE_THRESHOLD = 60
 
   // ================= NOTIFICATION =================
@@ -23,37 +25,42 @@ export const useSession = () => {
     Notification.requestPermission()
   }, [])
 
-  // ================= 📸 SCREENSHOT =================
-  const uploadScreenshot = async () => {
-    try {
-      if (!session) return
+ const uploadScreenshot = async () => {
+  try {
+    if (!session) return
 
-      const base64: string = await window.electron.captureScreenshot()
-      if (!base64) return
+    const base64: string = await window.electron.captureScreenshot()
+    if (!base64) return
 
-      const byteCharacters = atob(base64)
-      const byteArray = new Uint8Array(
-        [...byteCharacters].map(c => c.charCodeAt(0))
-      )
+    // 🔥 convert base64 → binary safely (NO Buffer needed)
+    const byteCharacters = atob(base64)
+    const byteNumbers = new Array(byteCharacters.length)
 
-      const blob = new Blob([byteArray], { type: 'image/png' })
-      const fileName = `${session.id}/${Date.now()}.png`
-
-      const { error } = await supabase.storage
-        .from('screenshots')
-        .upload(fileName, blob)
-
-      if (error) return console.error('Upload Error:', error.message)
-
-      await supabase.from('screenshots').insert({
-        session_id: session.id,
-        image_path: fileName
-      })
-
-    } catch (err) {
-      console.error('Screenshot Error:', err)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
     }
+
+    const byteArray = new Uint8Array(byteNumbers)
+
+    const blob = new Blob([byteArray], { type: 'image/png' })
+
+    const fileName = `${session.id}/${Date.now()}.png`
+
+    const { error } = await supabase.storage
+      .from('screenshots')
+      .upload(fileName, blob)
+
+    if (error) return console.error(error.message)
+
+    await supabase.from('screenshots').insert({
+      session_id: session.id,
+      image_path: fileName
+    })
+
+  } catch (err) {
+    console.error(err)
   }
+}
 
   // ================= START =================
   const start = async () => {
@@ -61,7 +68,6 @@ export const useSession = () => {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData?.user) return alert('Login required')
 
-      // 🔥 check existing active session first
       const { data: existing } = await supabase
         .from('work_sessions')
         .select('*')
@@ -76,7 +82,6 @@ export const useSession = () => {
         return
       }
 
-      // 🔥 create new session
       const { data, error } = await supabase
         .from('work_sessions')
         .insert({
@@ -176,7 +181,7 @@ export const useSession = () => {
     return () => clearInterval(timerRef.current)
   }, [session, status])
 
-  // ================= AUTO IDLE =================
+  // ================= AUTO IDLE (APP LEVEL - KEEP) =================
   useEffect(() => {
     if (!session || status === 'stopped') return
 
@@ -224,6 +229,42 @@ export const useSession = () => {
       window.removeEventListener('mousedown', activity)
 
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    }
+  }, [session, status])
+
+  useEffect(() => {
+    if (!session) return
+
+    const checkSystemIdle = async () => {
+      const idleTime = await window.electron.getSystemIdleTime()
+
+      if (idleTime >= IDLE_THRESHOLD && status === 'active') {
+        setStatus('paused')
+
+        await supabase
+          .from('work_sessions')
+          .update({ is_active: false })
+          .eq('id', session.id)
+
+        sendNotification("WorkSnap", "Paused (System Idle)")
+      }
+
+      if (idleTime < IDLE_THRESHOLD && status === 'paused') {
+        setStatus('active')
+
+        await supabase
+          .from('work_sessions')
+          .update({ is_active: true })
+          .eq('id', session.id)
+
+        sendNotification("WorkSnap", "Resumed (System Active)")
+      }
+    }
+
+    systemIdleRef.current = setInterval(checkSystemIdle, 5000)
+
+    return () => {
+      if (systemIdleRef.current) clearInterval(systemIdleRef.current)
     }
   }, [session, status])
 
