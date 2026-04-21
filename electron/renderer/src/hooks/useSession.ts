@@ -133,53 +133,73 @@ export const useSession = () => {
     }
   }
 
-  // ================= LOAD ACTIVE SESSION =================
-  useEffect(() => {
-    const loadSession = async () => {
+useEffect(() => {
+  const loadSession = async () => {
+    try {
+      // 1. Current user ID nikalna
       const { data: authData } = await supabase.auth.getUser()
-      if (!authData?.user) return
+      const currentUserId = authData?.user?.id
+      
+      if (!currentUserId) return
 
-      const { data } = await supabase
+      // 2. Query: 'created_at' ki jagah 'id' use kiya hai ordering ke liye
+      const { data, error } = await supabase
         .from('work_sessions')
         .select('*')
-        .eq('user_id', authData.user.id)
+        .eq('user_id', currentUserId)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false }) // 👈 Fixed: Aapke schema mein 'id' auto-increment hai
         .limit(1)
+
+      if (error) {
+        console.error("Session Load Error:", error.message)
+        return
+      }
 
       const active = data?.[0]
 
       if (active) {
-        const start = new Date(active.start_time).getTime()
-        const now = Date.now()
-
-        setElapsedTime(Math.floor((now - start) / 1000))
         setSession(active)
         setStatus('active')
+
+        // 🔥 Timer Fix: Refresh ke baad gap calculate karna
+        const startTime = new Date(active.start_time).getTime()
+        const now = Date.now()
+        const diffInSeconds = Math.floor((now - startTime) / 1000)
+        
+        setElapsedTime(diffInSeconds > 0 ? diffInSeconds : 0)
       }
+    } catch (err) {
+      console.error("Unexpected Error:", err)
     }
+  }
 
-    loadSession()
-  }, [])
+  loadSession()
+}, [])
 
-  // ================= TIMER =================
-  useEffect(() => {
-    if (!session || status !== 'active') {
-      if (timerRef.current) clearInterval(timerRef.current)
-      return
-    }
+useEffect(() => {
+  if (!session || status !== 'active') {
+    if (timerRef.current) clearInterval(timerRef.current)
+    return
+  }
 
-    const updateTimer = () => {
-      const start = new Date(session.start_time).getTime()
-      const now = Date.now()
-      setElapsedTime(Math.floor((now - start) / 1000))
-    }
+  const updateTimer = () => {
+    if (!session.start_time) return
+    
+    const startTime = new Date(session.start_time).getTime()
+    const now = Date.now()
+    const seconds = Math.floor((now - startTime) / 1000)
+    
+    setElapsedTime(seconds > 0 ? seconds : 0)
+  }
 
-    updateTimer()
-    timerRef.current = setInterval(updateTimer, 1000)
+  updateTimer() // Initial call
+  timerRef.current = setInterval(updateTimer, 1000)
 
-    return () => clearInterval(timerRef.current)
-  }, [session, status])
+  return () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+  }
+}, [session, status])
 
   // ================= AUTO IDLE (APP LEVEL - KEEP) =================
   useEffect(() => {
