@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient'
 
 export const sessionService = {
-  // Purani active session load karna
+  // 1. Purani active session load karna
   async getActiveSession(userId: string) {
     const { data, error } = await supabase
       .from('work_sessions')
@@ -15,7 +15,7 @@ export const sessionService = {
     return data?.[0] || null;
   },
 
-  // Nayi session start karna
+  // 2. Nayi session start karna
   async createSession(userId: string) {
     const { data, error } = await supabase
       .from('work_sessions')
@@ -32,7 +32,7 @@ export const sessionService = {
     return data;
   },
 
-  // Session update karna (Status ya End Time)
+  // 3. Session update karna (Status ya General updates)
   async updateSession(sessionId: number, updates: any) {
     const { error } = await supabase
       .from('work_sessions')
@@ -42,7 +42,25 @@ export const sessionService = {
     if (error) throw error;
   },
 
-  // Screenshot upload aur DB entry
+  // 4. Session stop karna (End time save karke data return karega)
+  async stopSession(sessionId: number) {
+    const endTime = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('work_sessions')
+      .update({ 
+        end_time: endTime, 
+        is_active: false, 
+        status: 'stopped' 
+      })
+      .eq('id', sessionId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data; 
+  },
+
+  // 5. Screenshot upload aur DB entry
   async uploadScreenshot(sessionId: number, userId: string, blob: Blob) {
     const fileName = `${sessionId}/${Date.now()}.png`;
 
