@@ -1,9 +1,7 @@
 import { supabase } from '../supabaseClient'
 
 export const authService = {
-  /**
-   * Naya user register karta hai aur custom users table mein entry karta hai
-   */
+
   async registerUser(formData: any) {
     // 1. Create Auth User in Supabase
     const { data, error } = await supabase.auth.signUp({
@@ -17,10 +15,8 @@ export const authService = {
     if (error) throw error
     if (!data.user) throw new Error("Registration failed: User not found")
 
-    // 2. Auto-login rokne ke liye session clear karein
     await supabase.auth.signOut()
 
-    // 3. Custom 'users' table mein entry insert karein
     const { error: dbError } = await supabase
       .from('users')
       .upsert({
@@ -34,12 +30,28 @@ export const authService = {
     return data.user
   },
 
+ 
   async login(formData: any) {
-     const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-     })
-     if (error) throw error
-     return data
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: formData.email.trim(),
+      password: formData.password.trim(),
+    })
+    
+    if (error) throw error
+    return data
+  },
+
+
+  async logout() {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+    return true
+  },
+
+
+  async getCurrentSession() {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) throw error
+    return session
   }
 }
