@@ -1,0 +1,144 @@
+/* ===== Page Layout ===== */
+.ws-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ===== Header ===== */
+.ws-header h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.ws-header p {
+    font-size: 14px;
+    color: #64748b;
+}
+
+/* ===== Cards Grid ===== */
+.ws-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+/* Full width card */
+.ws-full {
+    grid-column: span 2;
+}
+
+/* ===== Card Design ===== */
+.ws-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    transition: 0.2s ease;
+}
+
+.ws-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+/* ===== Titles ===== */
+.ws-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.ws-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 10px;
+}
+
+/* Status Colors */
+.ws-active {
+    color: #16a34a;
+}
+
+.ws-off {
+    color: #94a3b8;
+}
+
+/* ===== Logs ===== */
+.ws-logs {
+    max-height: 160px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.ws-log-item {
+    font-size: 12px;
+    color: #475569;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 6px 0;
+}
+
+.ws-log-time {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+/* ===== Buttons ===== */
+.ws-actions {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.ws-btn {
+    padding: 12px 24px;
+    border-radius: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.ws-btn-start {
+    background: #0f172a;
+    color: white;
+}
+
+.ws-btn-start:hover {
+    background: #1e293b;
+}
+
+.ws-btn-pause {
+    background: #f59e0b;
+    color: white;
+}
+
+.ws-btn-pause:hover {
+    background: #d97706;
+}
+
+.ws-btn-resume {
+    background: #10b981;
+    color: white;
+}
+
+.ws-btn-stop {
+    background: #ef4444;
+    color: white;
+}
+
+.ws-btn-stop:hover {
+    background: #dc2626;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+    .ws-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ws-full {
+        grid-column: span 1;
+    }
+}

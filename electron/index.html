@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src http://localhost:8000 http://127.0.0.1:8000; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"> 
+  <title>WorkSnap</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: #f4f4f5; color: #111; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { margin-bottom: 16px; }
+    .hidden { display: none; }
+    .box { background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.08); padding: 24px; margin-bottom: 16px; }
+    label { display: block; margin: 12px 0 6px; font-weight: 600; }
+    input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
+    button { cursor: pointer; border: none; border-radius: 10px; padding: 12px 18px; font-size: 1rem; margin-right: 10px; }
+    button.primary { background: #2563eb; color: white; }
+    button.secondary { background: #e2e8f0; color: #111; }
+    .status-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 16px; background: rgba(15,23,42,.95); color: #fff; border-radius: 999px; opacity: 0; transform: translateY(10px); transition: all .24s ease; }
+    #toast.visible { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="authPanel" class="box">
+      <h1 id="authTitle">Login to WorkSnap</h1>
+      <form id="loginForm">
+        <label for="emailInput">Email</label>
+        <input id="emailInput" type="email" placeholder="admin@worksnap.local" autocomplete="username" />
+
+        <label for="passwordInput">Password</label>
+        <input id="passwordInput" type="password" placeholder="Enter your password" autocomplete="current-password" />
+
+        <p style="margin: 12px 0 0; font-size: 0.9rem; color: #475569;">Or paste a valid API token directly:</p>
+        <label for="apiTokenInput">API Token</label>
+        <input id="apiTokenInput" type="text" placeholder="Enter your API token" autocomplete="off" />
+
+        <button type="submit" class="primary">Login</button>
+        <p style="margin-top: 16px; font-size: 0.9rem; color: #475569;">
+          New to WorkSnap? <a href="#" id="switchToRegister">Create an account</a>
+        </p>
+      </form>
+
+      <form id="registerForm" class="hidden">
+        <label for="registerNameInput">Name</label>
+        <input id="registerNameInput" type="text" placeholder="Your full name" autocomplete="name" />
+
+        <label for="registerEmailInput">Email</label>
+        <input id="registerEmailInput" type="email" placeholder="admin@worksnap.local" autocomplete="username" />
+
+        <label for="registerPasswordInput">Password</label>
+        <input id="registerPasswordInput" type="password" placeholder="Create a password" autocomplete="new-password" />
+
+        <label for="registerPasswordConfirmInput">Confirm Password</label>
+        <input id="registerPasswordConfirmInput" type="password" placeholder="Confirm your password" autocomplete="new-password" />
+
+        <button type="submit" class="primary">Register</button>
+        <p style="margin-top: 16px; font-size: 0.9rem; color: #475569;">
+          Already have an account? <a href="#" id="switchToLogin">Login instead</a>
+        </p>
+      </form>
+    </div>
+
+    <div id="controlPanel" class="box hidden">
+      <div class="status-row">
+        <div>
+          <p><strong>Status:</strong> <span id="statusText">Logged in</span></p>
+          <p><strong>Timer:</strong> <span id="timerDisplay">00:00:00</span></p>
+        </div>
+        <div>
+          <button id="startButton" class="primary">Start</button>
+          <button id="pauseButton" class="secondary">Pause</button>
+          <button id="stopButton" class="secondary">Stop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script type="module" src="./renderer.js"></script>
+</body>
+</html>
