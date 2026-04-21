@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain, desktopCapturer } = require('electron')
+﻿const { app, BrowserWindow, ipcMain, desktopCapturer, powerMonitor } = require('electron')
 const path = require('path')
 
 let mainWindow
@@ -30,14 +30,16 @@ ipcMain.handle('capture-screenshot', async () => {
 // ✅ START SESSION
 ipcMain.handle('start-session', async () => {
   console.log('✅ Session started')
-
-  // yaha future me screenshot interval laga sakte ho
   return { success: true }
 })
 
 // ✅ STOP SESSION
 ipcMain.handle('stop-session', async () => {
   console.log('🛑 Session stopped')
-
   return { success: true }
+})
+
+// 🔥 SYSTEM IDLE TIME
+ipcMain.handle('get-system-idle-time', () => {
+  return powerMonitor.getSystemIdleTime()
 })
