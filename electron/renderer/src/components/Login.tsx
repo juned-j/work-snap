@@ -1,96 +1,50 @@
-import { useState } from 'react'
-import { supabase } from '../api/supabase'
+import { useState } from 'react';
+import { authService } from '../services/authService'; // Path check karein
+import LoginForm from './LoginForm'; // Same folder import
 
 export default function Login({ onToggle }: { onToggle: () => void }) {
-  const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (loading) return
+ const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim()
-      })
-
-      if (error) throw error
-
-      // Note: Alert ki zaroorat nahi hoti aksar kyunki auth state change 
-      // hote hi UI khud dashboard par chala jata hai.
-      console.log("Login successful ✅")
-
+      // ✅ Change: loginUser -> login AND pass as object
+      await authService.login({ email, password }); 
+      
+      console.log("Login Success ✅");
     } catch (error: any) {
-      console.error("Login Error:", error.message)
-
-      // Precise Error Messages
+      console.error("Login Error:", error.message);
+      
       if (error.message.includes("Invalid login credentials")) {
-        alert("Wrong email or password ❌")
-      } else if (error.message.includes("Email not confirmed")) {
-        alert("Please verify your email first 📧")
+        alert("Incorrect email or password.");
       } else {
-        alert(error.message)
+        alert(error.message);
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-white">Welcome Back</h2>
-        <p className="text-slate-400 text-sm mt-1">Please sign in to continue</p>
-      </div>
-
-      <form onSubmit={handleLogin} className="space-y-4">
-        <input
-          type="email"
-          placeholder="Email Address"
-          required
-          className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-        />
-
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            required
-            className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
-
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-3 text-sm text-indigo-400 font-bold hover:text-indigo-300"
-          >
-            {showPassword ? "Hide" : "Show"}
-          </button>
-        </div>
-
-        <button
-          disabled={loading}
-          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
-        >
-          {loading ? 'Logging in...' : 'LOG IN'}
-        </button>
-      </form>
-
-      <p className="text-center text-slate-500 text-sm">
-        New here?{' '}
-        <button onClick={onToggle} className="text-indigo-400 font-bold hover:underline">
-          Sign Up
-        </button>
-      </p>
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4">
+      <LoginForm 
+        email={email}
+        setEmail={setEmail}
+        password={password}
+        setPassword={setPassword}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        loading={loading}
+        onSubmit={handleLogin}
+        onToggle={onToggle}
+      />
     </div>
-  )
+  );
 }
