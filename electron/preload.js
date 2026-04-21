@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('electron', {
 
   captureScreenshot: () => ipcRenderer.invoke('capture-screenshot'),
 
-  getSystemIdleTime: () => ipcRenderer.invoke('get-system-idle-time')
+  getSystemIdleTime: () => ipcRenderer.invoke('get-system-idle-time'),
+  onActivityUpdate: (callback) => ipcRenderer.on('activity-update', (_event, value) => callback(value)),
 })
