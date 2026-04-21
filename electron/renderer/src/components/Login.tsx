@@ -5,7 +5,7 @@ export default function Login({ onToggle }: { onToggle: () => void }) {
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false) // 👈 new
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,11 +21,14 @@ export default function Login({ onToggle }: { onToggle: () => void }) {
 
       if (error) throw error
 
-      alert("Login successful ✅")
+      // Note: Alert ki zaroorat nahi hoti aksar kyunki auth state change 
+      // hote hi UI khud dashboard par chala jata hai.
+      console.log("Login successful ✅")
 
     } catch (error: any) {
-      console.error(error.message)
+      console.error("Login Error:", error.message)
 
+      // Precise Error Messages
       if (error.message.includes("Invalid login credentials")) {
         alert("Wrong email or password ❌")
       } else if (error.message.includes("Email not confirmed")) {
@@ -42,32 +45,33 @@ export default function Login({ onToggle }: { onToggle: () => void }) {
     <div className="space-y-4">
       <div className="text-center mb-6">
         <h2 className="text-3xl font-bold text-white">Welcome Back</h2>
+        <p className="text-slate-400 text-sm mt-1">Please sign in to continue</p>
       </div>
 
       <form onSubmit={handleLogin} className="space-y-4">
-
         <input
           type="email"
           placeholder="Email Address"
           required
-          className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          value={email}
           onChange={e => setEmail(e.target.value)}
         />
 
-        {/* Password Field with Toggle */}
         <div className="relative">
           <input
-            type={showPassword ? "text" : "password"} // 👈 toggle
+            type={showPassword ? "text" : "password"}
             placeholder="Password"
             required
-            className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            value={password}
             onChange={e => setPassword(e.target.value)}
           />
 
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-3 text-sm text-indigo-400"
+            className="absolute right-4 top-3 text-sm text-indigo-400 font-bold hover:text-indigo-300"
           >
             {showPassword ? "Hide" : "Show"}
           </button>
@@ -75,7 +79,7 @@ export default function Login({ onToggle }: { onToggle: () => void }) {
 
         <button
           disabled={loading}
-          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
+          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
         >
           {loading ? 'Logging in...' : 'LOG IN'}
         </button>
