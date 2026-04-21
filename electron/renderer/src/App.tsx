@@ -54,20 +54,25 @@ export default function App() {
   if (!userSession) return <Auth />
 
   return (
-    <div className="h-screen bg-[#020617] text-slate-200 flex overflow-hidden">
-      <Sidebar onLogout={handleLogout} />
+  <div className="h-screen bg-[#020617] text-slate-200 flex overflow-hidden">
+    <Sidebar onLogout={handleLogout} />
+    
+    <DashboardLayout email={userSession?.user?.email ?? 'User'}>
       
-      <DashboardLayout email={userSession?.user?.email ?? 'User'}>
-        {/* Container ko max-width-5xl rakha hai taaki content bahut zyada stretch na ho, par full row cover kare */}
-        <div className="max-w-5xl mx-auto flex flex-col gap-8 w-full">
-          
-          {/* Row 1: Timer & Controls (Ab ye Full Width hai) */}
-          <div className="w-full">
+      {/* 🔥 container compact */}
+      <div className="max-w-3xl mx-auto flex flex-col gap-4 px-4 py-4">
+        
+        <div className="w-full flex justify-center">
+          <div className="w-full max-w-lg">
             <TrackingCard status={status} sessionId={session?.id}>
-              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+              
+              {/* 🔥 reduced spacing */}
+              <div className="flex flex-col md:flex-row items-center justify-between gap-2 p-2">
+                
                 <div className="w-full md:w-1/3">
                   <TimerCard elapsedTime={elapsedTime} status={status} />
                 </div>
+
                 <div className="w-full md:w-2/3">
                   <SessionControls 
                     session={session} 
@@ -76,42 +81,58 @@ export default function App() {
                     onPause={pause} 
                     onStop={stop} 
                   />
-                  <p className="mt-4 text-[10px] text-slate-500 font-mono uppercase tracking-[0.2em] text-center md:text-left">
-                    Session Management Protocol Active
+
+                  <p className="mt-1 text-[9px] text-slate-500 font-mono uppercase tracking-wide text-center md:text-left">
+                    Active
                   </p>
                 </div>
+
               </div>
             </TrackingCard>
           </div>
-
-          {/* Row 2: Insights (Ye Timer ke niche aayega) */}
-          <div className="w-full">
-            {session?.id ? (
-              <div className="bg-[#0f172a]/40 border border-slate-800/50 rounded-[2.5rem] overflow-hidden shadow-xl backdrop-blur-md">
-                <div className="p-6 border-b border-slate-800/50 flex justify-between items-center bg-slate-900/20 px-8">
-                   <h3 className="text-xs font-black uppercase tracking-widest text-indigo-400">Application Usage Analytics</h3>
-                   <div className="flex items-center gap-2">
-                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></span>
-                     <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Live Feed</span>
-                   </div>
-                </div>
-                <div className="p-2">
-                   <SystemUsage sessionId={session.id} />
-                </div>
-              </div>
-            ) : (
-              <div className="h-[300px] border-2 border-dashed border-slate-800/40 rounded-[2.5rem] flex flex-col items-center justify-center text-center p-12 bg-slate-900/10">
-                <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center mb-4 text-slate-700 border border-slate-800">
-                  <ActivityIcon />
-                </div>
-                <h4 className="text-slate-400 font-bold uppercase text-xs tracking-widest">Awaiting Data Stream</h4>
-                <p className="text-xs text-slate-600 mt-2">Start a session to visualize real-time application insights.</p>
-              </div>
-            )}
-          </div>
-
         </div>
-      </DashboardLayout>
-    </div>
-  )
+
+        {/* Row 2 */}
+        <div className="w-full">
+          {session?.id ? (
+            <div className="bg-[#0f172a]/40 border border-slate-800/50 rounded-2xl overflow-hidden shadow-md">
+              
+              {/* 🔥 compact header */}
+              <div className="p-3 border-b border-slate-800/50 flex justify-between items-center">
+                <h3 className="text-[11px] font-bold uppercase tracking-wide text-indigo-400">
+                  Application Usage
+                </h3>
+
+                <span className="text-[9px] text-green-400 font-semibold">
+                  ● Live
+                </span>
+              </div>
+
+              <div className="p-2">
+                <SystemUsage sessionId={session.id} />
+              </div>
+
+            </div>
+          ) : (
+            <div className="h-[220px] border border-dashed border-slate-800/40 rounded-2xl flex flex-col items-center justify-center text-center p-6">
+              
+              <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center mb-3 text-slate-700 border border-slate-800">
+                <ActivityIcon />
+              </div>
+
+              <h4 className="text-slate-400 font-semibold text-[11px] uppercase tracking-wide">
+                Awaiting Data
+              </h4>
+
+              <p className="text-[10px] text-slate-600 mt-1">
+                Start session to see insights
+              </p>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </DashboardLayout>
+  </div>
+)
 }
