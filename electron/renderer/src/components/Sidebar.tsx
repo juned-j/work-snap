@@ -1,3 +1,6 @@
+import { useDynamicNav } from '../hooks/useDynamicNav';
+import type { DynamicNavItem } from '../hooks/useDynamicNav';
+
 // Manual SVG Icons to prevent Hook Errors
 const SidebarIcons = {
   Dashboard: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="15" rx="1"/></svg>,
@@ -7,21 +10,45 @@ const SidebarIcons = {
   Zap: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
 }
 
-export const Sidebar = ({ onLogout }: { onLogout: () => void }) => {
+const iconMap: Record<DynamicNavItem['key'], any> = {
+  dashboard: <SidebarIcons.Dashboard />,
+  timesheets: <SidebarIcons.Activity />,
+  activity: <SidebarIcons.Activity />,
+  profile: <SidebarIcons.Settings />,
+  settings: <SidebarIcons.Settings />,
+};
+
+export const Sidebar = ({
+  onLogout,
+  activePage,
+  onNavigate,
+}: {
+  onLogout: () => void
+  activePage: DynamicNavItem['key']
+  onNavigate: (page: DynamicNavItem['key']) => void
+}) => {
+  const navItems = useDynamicNav();
+
   return (
-    <aside className="w-20 lg:w-64 border-r border-slate-800/60 bg-[#020617] flex flex-col p-6 h-screen overflow-y-auto flex-shrink-0 custom-scrollbar">
-      <div className="flex items-center gap-3 mb-10 px-2 text-indigo-500">
+    <aside className="w-20 lg:w-64 border-r border-slate-200 bg-white flex flex-col p-6 h-screen overflow-y-auto flex-shrink-0 custom-scrollbar">
+      <div className="flex items-center gap-3 mb-10 px-2 text-slate-800">
         <SidebarIcons.Zap />
-        <span className="text-xl font-bold hidden lg:block tracking-tighter text-white">WorkSnap</span>
+        <span className="text-xl font-bold hidden lg:block tracking-tighter text-slate-900">WorkSnap</span>
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto">
-        <NavItem icon={<SidebarIcons.Dashboard />} label="Dashboard" active />
-        <NavItem icon={<SidebarIcons.Activity />} label="Insights" />
-        <NavItem icon={<SidebarIcons.Settings />} label="Settings" />
+        {navItems.map((item) => (
+          <NavItem
+            key={item.key}
+            icon={iconMap[item.key]}
+            label={item.label}
+            active={activePage === item.key}
+            onClick={() => onNavigate(item.key)}
+          />
+        ))}
       </nav>
 
-      <button onClick={onLogout} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0">
+      <button onClick={onLogout} className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-red-600 transition-colors flex-shrink-0">
         <SidebarIcons.Logout />
         <span className="font-bold text-xs uppercase tracking-widest hidden lg:block">Logout</span>
       </button>
@@ -29,10 +56,25 @@ export const Sidebar = ({ onLogout }: { onLogout: () => void }) => {
   );
 };
 
-
-const NavItem = ({ icon, label, active = false }: { icon: any; label: string; active?: boolean }) => (
-  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all ${active ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-500 hover:text-slate-200'}`}>
+const NavItem = ({
+  icon,
+  label,
+  active = false,
+  onClick,
+}: {
+  icon: any
+  label: string
+  active?: boolean
+  onClick: () => void
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+      active ? 'bg-indigo-500/10 text-slate-900' : 'text-slate-600 hover:text-slate-900'
+    }`}
+  >
     {icon}
     <span className="font-bold text-sm hidden lg:block">{label}</span>
-  </div>
+  </button>
 );

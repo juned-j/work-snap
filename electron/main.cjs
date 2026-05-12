@@ -1,21 +1,39 @@
 ﻿const { app, BrowserWindow, ipcMain, desktopCapturer, powerMonitor } = require('electron')
 const path = require('path')
-const activeWin = require('active-win'); 
+const activeWin = require('active-win')
+const { SystemActivityMonitor } = require('./main/services/systemActivityMonitor.cjs')
 
 let mainWindow
-let activityInterval = null;
+let activityMonitor = null
+let isSessionActive = false
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true
-    }
-  })
+  width: 1200,
+  height: 800,
+
+  frame: true, // ✅ default title bar
+  fullscreen: false, // ✅ fullscreen off
+
+  webPreferences: {
+    preload: path.join(__dirname, 'preload.js'),
+    contextIsolation: true
+  }
+})
 
   mainWindow.loadURL('http://localhost:5176')
+
+  // Initialize activity monitor with this window
+  if (!activityMonitor) {
+    activityMonitor = new SystemActivityMonitor({
+      powerMonitor,
+      sendEvent: (channel, data) => {
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send(channel, data)
+        }
+      }
+    })
+  }
 }
 
 app.whenReady().then(createWindow)
@@ -30,42 +48,36 @@ ipcMain.handle('capture-screenshot', async () => {
   return sources[0].thumbnail.toPNG().toString('base64')
 })
 
+// ✅ START SESSION - Begin system-wide activity tracking
 ipcMain.handle('start-session', async () => {
-  console.log('✅ Session started');
+  console.log('✅ Session started - System activity monitoring begins');
+  isSessionActive = true
   
-  if (!activityInterval) {
-    activityInterval = setInterval(async () => {
-      try {
-        const window = await activeWin();
-        const idleTime = powerMonitor.getSystemIdleTime();
-
-        if (window && mainWindow) {
-          const activityData = {
-            appName: window.owner.name,   
-            title: window.title,         
-            idleTime: idleTime,
-            timestamp: new Date().toISOString()
-          };
-
-          mainWindow.webContents.send('activity-update', activityData);
-        }
-      } catch (err) {
-        console.error('Activity Capture Error:', err);
-      }
-    }, 30000); 
+  if (activityMonitor) {
+    activityMonitor.start()
   }
 
   return { success: true }
 })
 
-// ✅ STOP SESSION
+// ✅ STOP SESSION - Stop system-wide activity tracking
 ipcMain.handle('stop-session', async () => {
-  console.log('🛑 Session stopped');
-  if (activityInterval) {
-    clearInterval(activityInterval);
-    activityInterval = null;
+  console.log('🛑 Session stopped - System activity monitoring paused');
+  isSessionActive = false
+  
+  if (activityMonitor) {
+    activityMonitor.stop()
   }
+
   return { success: true }
+})
+
+// 🔥 GET SYSTEM ACTIVITY STATUS
+ipcMain.handle('get-system-activity-status', () => {
+  if (activityMonitor) {
+    return activityMonitor.getStatus()
+  }
+  return { idleTime: 0, isActive: false, status: 'idle' }
 })
 
 // 🔥 SYSTEM IDLE TIME

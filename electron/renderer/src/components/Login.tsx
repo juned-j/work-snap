@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { authService } from '../services/authService'; // Path check karein
-import LoginForm from './LoginForm'; // Same folder import
+import { authService } from '../services/authService';
+import LoginForm from './LoginForm';
 
-export default function Login({ onToggle }: { onToggle: () => void }) {
+export default function Login({ onToggle, onForgotPassword }: { onToggle: () => void; onForgotPassword: () => void }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,18 +33,17 @@ export default function Login({ onToggle }: { onToggle: () => void }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4">
-      <LoginForm 
-        email={email}
-        setEmail={setEmail}
-        password={password}
-        setPassword={setPassword}
-        showPassword={showPassword}
-        setShowPassword={setShowPassword}
-        loading={loading}
-        onSubmit={handleLogin}
-        onToggle={onToggle}
-      />
-    </div>
+    <LoginForm 
+      email={email}
+      setEmail={setEmail}
+      password={password}
+      setPassword={setPassword}
+      showPassword={showPassword}
+      setShowPassword={setShowPassword}
+      loading={loading}
+      onSubmit={handleLogin}
+      onToggle={onToggle}
+      onForgotPassword={onForgotPassword}
+    />
   );
 }

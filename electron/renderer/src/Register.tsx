@@ -29,14 +29,12 @@ export default function Register({ onToggle }: { onToggle: () => void }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] text-white p-4">
-      <RegisterForm 
-        formData={formData}
-        setFormData={setFormData}
-        onSubmit={handleRegister}
-        loading={loading}
-        onToggle={onToggle}
-      />
-    </div>
+    <RegisterForm 
+      formData={formData}
+      setFormData={setFormData}
+      onSubmit={handleRegister}
+      loading={loading}
+      onToggle={onToggle}
+    />
   )
 }

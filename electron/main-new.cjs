@@ -8,11 +8,15 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    frame: false,
+    fullscreen: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true
     }
   })
+
+  mainWindow.removeMenu()
 
   // Load the React app from the development server
   const isDev = process.env.NODE_ENV === 'development'

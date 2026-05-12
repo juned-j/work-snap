@@ -10,19 +10,20 @@ interface LoginFormProps {
   loading: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onToggle: () => void;
+  onForgotPassword: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({
   email, setEmail, password, setPassword,
-  showPassword, setShowPassword, loading, onSubmit, onToggle
+  showPassword, setShowPassword, loading, onSubmit, onToggle, onForgotPassword
 }) => {
   return (
-    <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-10 shadow-2xl">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-black text-white italic tracking-tighter">
-           Work<span className="text-indigo-500">Snap</span> 🚀
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-3xl font-black text-slate-900 italic tracking-tighter">
+           Work<span className="text-indigo-500">Snap</span>
         </h2>
-        <p className="text-slate-400 text-sm mt-2 font-medium">Welcome back, please login</p>
+        <p className="text-slate-500 text-sm mt-2 font-medium">Welcome back, please login</p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -31,7 +32,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
           placeholder="Email Address"
           required
           disabled={loading}
-          className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
+          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
           value={email}
           onChange={e => setEmail(e.target.value)}
         />
@@ -42,7 +43,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
             placeholder="Password"
             required
             disabled={loading}
-            className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
             value={password}
             onChange={e => setPassword(e.target.value)}
           />
@@ -63,12 +64,18 @@ const LoginForm: React.FC<LoginFormProps> = ({
         </button>
       </form>
 
-      <p className="text-center text-slate-500 text-sm mt-6">
-        New here?{' '}
-        <button onClick={onToggle} className="text-indigo-400 font-bold hover:underline">
-          Create Account
+      <div className="flex flex-col gap-3 text-center mt-6 text-sm">
+        <button type="button" onClick={onForgotPassword} className="text-indigo-600 font-semibold hover:text-indigo-500">
+          Forgot password?
         </button>
-      </p>
+
+        <p className="text-slate-500">
+          New here?{' '}
+          <button onClick={onToggle} className="text-indigo-600 font-semibold hover:text-indigo-500">
+            Create Account
+          </button>
+        </p>
+      </div>
     </div>
   );
 };

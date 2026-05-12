@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../api/supabase'
 import { sessionService } from '../services/sessionService'
 import { useNotifications } from './useNotifications'
 
@@ -14,6 +14,9 @@ export const useSession = () => {
   const idleTimerRef = useRef<any>(null)
   const screenshotRef = useRef<any>(null)
   const systemIdleRef = useRef<any>(null)
+  const manualPauseRef = useRef(false) // Track if pause was manual
+  const previousPauseReasonRef = useRef<'manual' | 'idle' | null>(null) // Track previous pause state
+  const statusRef = useRef<'idle' | 'active' | 'paused' | 'stopped'>('idle') // Avoid stale closures
 
   const { sendNotification, requestPermission } = useNotifications()
   const IDLE_THRESHOLD = 60
@@ -23,28 +26,57 @@ export const useSession = () => {
     sessionRef.current = session
   }, [session])
 
+  // Track status in ref to avoid stale closures
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+
   useEffect(() => {
     requestPermission()
     loadSession()
   }, [])
 
-  const loadSession = async () => {
-    try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData?.user?.id) return
+const loadSession = async () => {
+  try {
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData?.user?.id) return
 
-      const active = await sessionService.getActiveSession(authData.user.id)
-      if (active) {
-        setSession(active)
-        setStatus('active')
-        const startTime = new Date(active.start_time).getTime()
-        const diffInSeconds = Math.floor((Date.now() - startTime) / 1000)
-        setElapsedTime(diffInSeconds > 0 ? diffInSeconds : 0)
-      }
-    } catch (err) {
-      console.error("Session Load Error:", err)
+    // Load latest session (active or stopped) for today
+    const latest = await sessionService.getLatestSession(authData.user.id)
+    if (!latest) return
+
+    const sessionDate = new Date(latest.start_time)
+    const today = new Date()
+
+    const isSameDay =
+      sessionDate.getDate() === today.getDate() &&
+      sessionDate.getMonth() === today.getMonth() &&
+      sessionDate.getFullYear() === today.getFullYear()
+
+    if (!isSameDay) {
+      // Close old session
+      await sessionService.updateSession(latest.id, {
+        end_time: new Date().toISOString(),
+        is_active: false,
+        status: 'stopped'
+      })
+      return
     }
+
+    setSession(latest)
+
+    // Restore correct status
+    setStatus(latest.is_active ? 'active' : 'paused')
+
+    // Compute elapsedTime from timestamps
+    const startTime = new Date(latest.start_time).getTime()
+    const endTime = latest.end_time ? new Date(latest.end_time).getTime() : Date.now()
+    const elapsedSeconds = Math.floor((endTime - startTime) / 1000)
+    setElapsedTime(elapsedSeconds)
+  } catch (err) {
+    console.error('Session Load Error:', err)
   }
+}
 
   const uploadScreenshot = async () => {
     try {
@@ -65,32 +97,87 @@ export const useSession = () => {
     }
   }
 
-  const start = async () => {
-    try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData?.user) return alert('Login required')
+ const start = async () => {
+  try {
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData?.user) return alert('Login required')
 
-      const existing = await sessionService.getActiveSession(authData.user.id)
-      if (existing) {
-        setSession(existing); setStatus('active'); return
+    // Check latest session for today (active or stopped)
+    const latest = await sessionService.getLatestSession(authData.user.id)
+
+    if (latest) {
+      const sessionDate = new Date(latest.start_time)
+      const today = new Date()
+
+      const isSameDay =
+        sessionDate.getDate() === today.getDate() &&
+        sessionDate.getMonth() === today.getMonth() &&
+        sessionDate.getFullYear() === today.getFullYear()
+
+      if (isSameDay) {
+        if (latest.is_active) {
+          // Already active today - continue
+          setSession(latest)
+          setStatus('active')
+          return
+        } else {
+          // Resume stopped session: clear end_time, reset start_time to now
+          const newStart = new Date().toISOString()
+          await sessionService.updateSession(latest.id, {
+            start_time: newStart,
+            end_time: null,
+            is_active: true,
+            status: 'active'
+          })
+          const resumed = { ...latest, start_time: newStart, end_time: null, is_active: true, status: 'active' }
+          setSession(resumed)
+          setStatus('active')
+          setElapsedTime(0)
+          if (window.electron?.startSession) await window.electron.startSession()
+          return
+        }
+      } else {
+        // Older day - close it
+        await sessionService.updateSession(latest.id, {
+          end_time: new Date().toISOString(),
+          is_active: false,
+          status: 'stopped'
+        })
       }
-
-      const data = await sessionService.createSession(authData.user.id)
-      setSession(data); setStatus('active')
-      if (window.electron?.startSession) await window.electron.startSession()
-    } catch (err: any) {
-      alert(err.message)
     }
-  }
 
+    // No session for today -> create new
+    const data = await sessionService.createSession(authData.user.id)
+    setSession(data)
+    setStatus('active')
+    setElapsedTime(0)
+
+    if (window.electron?.startSession) await window.electron.startSession()
+
+  } catch (err: any) {
+    alert(err.message)
+  }
+}
+//comment
   const stop = async () => {
     if (!session) return
     try {
+      // Calculate total elapsed time from start to now
+      const endTime = new Date().toISOString()
+      const startTime = new Date(session.start_time).getTime()
+      const totalDuration = Math.floor((Date.now() - startTime) / 1000)
+
       await sessionService.updateSession(session.id, {
-        end_time: new Date().toISOString(),
-        is_active: false
+        end_time: endTime,
+        is_active: false,
+        status: 'stopped'
       })
-      setSession(null); setStatus('stopped'); setElapsedTime(0)
+
+      // Update local state and freeze timer (do not reset to 0)
+      setSession({ ...session, end_time: endTime, is_active: false, status: 'stopped' })
+      setStatus('stopped')
+      setElapsedTime(totalDuration)
+
       if (window.electron?.stopSession) await window.electron.stopSession()
     } catch (err) {
       console.error(err)
@@ -103,31 +190,27 @@ export const useSession = () => {
       if (timerRef.current) clearInterval(timerRef.current)
       return
     }
+
     timerRef.current = setInterval(() => {
       const startTime = new Date(session.start_time).getTime()
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000))
+      const run = Math.floor((Date.now() - startTime) / 1000)
+      setElapsedTime(run)
     }, 1000)
     return () => clearInterval(timerRef.current)
   }, [session, status])
 
-  // Inactivity & Activity Listeners
+  // Inactivity & Activity Listeners - only reset timer, don't auto-pause from here
   useEffect(() => {
-    if (!session || status === 'stopped') return
+    if (!session || statusRef.current === 'stopped') return
 
     const handleActivity = async () => {
-      if (status === 'paused') {
-        setStatus('active')
-        await sessionService.updateSession(session.id, { is_active: true })
-        sendNotification("WorkSnap", "Resumed")
+      // Only reset inactivity timer; don't change state from here
+      if (statusRef.current === 'active') {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = setTimeout(async () => {
+          // System idle check will handle pausing
+        }, IDLE_THRESHOLD * 1000)
       }
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-      idleTimerRef.current = setTimeout(async () => {
-        if (status === 'active') {
-          setStatus('paused')
-          await sessionService.updateSession(session.id, { is_active: false })
-          sendNotification("WorkSnap", "Paused due to inactivity")
-        }
-      }, IDLE_THRESHOLD * 1000)
     }
 
     window.addEventListener('mousemove', handleActivity)
@@ -137,25 +220,38 @@ export const useSession = () => {
       window.removeEventListener('keydown', handleActivity)
       clearTimeout(idleTimerRef.current)
     }
-  }, [session, status])
+  }, [session])
 
-  // System Idle Effect
+  // System Idle Effect - check idle time and notify only on state transitions
   useEffect(() => {
     if (!session) return
     systemIdleRef.current = setInterval(async () => {
       const idleTime = await window.electron.getSystemIdleTime()
-      if (idleTime >= IDLE_THRESHOLD && status === 'active') {
+      const currentStatus = statusRef.current
+      const currentPauseReason = previousPauseReasonRef.current
+
+      // TRANSITION: Active -> Paused (idle)
+      if (idleTime >= IDLE_THRESHOLD && currentStatus === 'active') {
         setStatus('paused')
+        manualPauseRef.current = false
+        previousPauseReasonRef.current = 'idle'
         await sessionService.updateSession(session.id, { is_active: false })
-        sendNotification("WorkSnap", "Paused (System Idle)")
-      } else if (idleTime < IDLE_THRESHOLD && status === 'paused') {
+        sendNotification("WorkSnap", "Paused due to inactivity")
+      }
+      // TRANSITION: Paused (idle) -> Active
+      else if (idleTime < IDLE_THRESHOLD && currentStatus === 'paused' && currentPauseReason === 'idle' && !manualPauseRef.current) {
         setStatus('active')
+        previousPauseReasonRef.current = null
         await sessionService.updateSession(session.id, { is_active: true })
-        sendNotification("WorkSnap", "Resumed (System Active)")
+        sendNotification("WorkSnap", "Resumed")
+      }
+      // NO transition: stay paused if manually paused
+      else if (currentStatus === 'paused' && manualPauseRef.current) {
+        // Do nothing - manual pause stays paused
       }
     }, 5000)
     return () => clearInterval(systemIdleRef.current)
-  }, [session, status])
+  }, [session])
 
   // Auto Screenshot Effect
   useEffect(() => {
@@ -168,7 +264,24 @@ export const useSession = () => {
       clearInterval(screenshotRef.current)
     }
     return () => clearInterval(screenshotRef.current)
-  }, [status, !!session]) 
+  }, [status, !!session])
 
-  return { start, stop, pause: () => setStatus(p => p === 'paused' ? 'active' : 'paused'), session, status, elapsedTime }
+  const pause = async () => {
+    if (!session) return
+    if (statusRef.current === 'active') {
+      manualPauseRef.current = true // Mark as manual pause
+      previousPauseReasonRef.current = 'manual'
+      setStatus('paused')
+      await sessionService.updateSession(session.id, { is_active: false })
+      sendNotification("WorkSnap", "Paused")
+    } else if (statusRef.current === 'paused') {
+      manualPauseRef.current = false // Resumed manually
+      previousPauseReasonRef.current = null
+      setStatus('active')
+      await sessionService.updateSession(session.id, { is_active: true })
+      sendNotification("WorkSnap", "Resumed")
+    }
+  }
+
+  return { start, stop, pause, session, status, elapsedTime }
 }

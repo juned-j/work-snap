@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient'
+import { supabase } from '../api/supabase'
 
 export const sessionService = {
   // 1. Purani active session load karna
@@ -15,6 +15,19 @@ export const sessionService = {
     return data?.[0] || null;
   },
 
+  // Get latest session (active or stopped) for the user
+  async getLatestSession(userId: string) {
+    const { data, error } = await supabase
+      .from('work_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    return data?.[0] || null;
+  },
+
   // 2. Nayi session start karna
   async createSession(userId: string) {
     const { data, error } = await supabase
@@ -25,7 +38,7 @@ export const sessionService = {
         is_active: true,
         status: 'active'
       })
-      .select()
+      .select('*')
       .single();
     
     if (error) throw error;
@@ -53,7 +66,7 @@ export const sessionService = {
         status: 'stopped' 
       })
       .eq('id', sessionId)
-      .select()
+      .select('*')
       .single();
     
     if (error) throw error;

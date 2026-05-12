@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient'
+import { supabase } from '../api/supabase'
 
 export const authService = {
 
@@ -41,6 +41,22 @@ export const authService = {
     return data
   },
 
+  async verifyEmail(email: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email.trim())
+      .maybeSingle()
+
+    if (error) throw error
+    return Boolean(data)
+  },
+
+  async sendPasswordReset(email: string) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim())
+    if (error) throw error
+    return data
+  },
 
   async logout() {
     const { error } = await supabase.auth.signOut()
