@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('screenshots', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('session_id')->constrained('work_sessions')->onDelete('cascade');
             $table->dateTime('captured_at');
             $table->text('image_path');
