@@ -11,18 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-    $table->uuid('id')->primary(); 
-    
-    $table->string('name')->nullable(); 
-    
+      Schema::create('users', function (Blueprint $table) {
+    $table->uuid('id')->primary();
+    $table->string('name')->nullable();
     $table->string('email')->unique();
-    
-    $table->string('password_hash')->nullable(); 
-
+    $table->string('password_hash')->nullable();
     $table->timestamp('email_verified_at')->nullable();
     $table->rememberToken();
     $table->timestamps();
+
+    $table->foreignId('role_id')
+        ->nullable()
+        ->constrained('roles')
+        ->nullOnDelete();
+
+    $table->uuid('manager_id')->nullable(); // ONLY column, no FK here
 });
     }
 
