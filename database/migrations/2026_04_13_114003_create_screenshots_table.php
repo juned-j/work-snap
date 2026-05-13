@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('session_id')->constrained('work_sessions')->onDelete('cascade');
             $table->dateTime('captured_at');
-            $table->text('image_path');
+            $table->text('image_url');
             $table->timestamps();
         });
     }
