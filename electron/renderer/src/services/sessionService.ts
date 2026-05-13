@@ -74,29 +74,69 @@ export const sessionService = {
   },
 
   // 5. Screenshot upload aur DB entry
+// 5. Screenshot upload aur DB entry with Heavy Logging
   async uploadScreenshot(sessionId: number, userId: string, blob: Blob) {
+    console.log("📸 --- SCREENSHOT UPLOAD START ---");
+    console.log("🔹 Session ID:", sessionId);
+    console.log("🔹 User ID:", userId);
+    console.log("🔹 Blob Info:", { size: blob.size, type: blob.type });
+
+    // Validation: Agar blob khali hai toh aage mat badho
+    if (blob.size === 0) {
+      console.error("❌ ERROR: Blob size is 0. Screenshot capture failed.");
+      return false;
+    }
+
     const fileName = `${sessionId}/${Date.now()}.png`;
+    console.log("🔹 Generated FileName:", fileName);
 
-    const { error: storageError } = await supabase.storage
+    // 1. Storage Upload Attempt
+    console.log("🚀 Attempting Supabase Storage upload...");
+    const { data: storageData, error: storageError } = await supabase.storage
       .from('screenshots')
-      .upload(fileName, blob);
+      .upload(fileName, blob, {
+        contentType: 'image/png',
+        cacheControl: '3600',
+        upsert: false
+      });
 
-    if (storageError) throw storageError;
+    if (storageError) {
+      console.error("❌ STORAGE ERROR DETAILS:", {
+        message: storageError.message,
+        name: storageError.name,
+        status: (storageError as any).status // Error code like 403, 404, etc.
+      });
+      throw storageError;
+    }
 
+    console.log("✅ STORAGE SUCCESS:", storageData);
+
+    // 2. Get Public URL
     const { data: urlData } = supabase.storage
       .from('screenshots')
       .getPublicUrl(fileName);
 
-    const { error: dbError } = await supabase
+    console.log("🔗 Public URL Generated:", urlData.publicUrl);
+
+    // 3. Database Entry Attempt
+    console.log("🚀 Attempting Database entry...");
+    const { data: dbData, error: dbError } = await supabase
       .from('screenshots')
       .insert({
         session_id: sessionId,
         user_id: userId,
         image_url: urlData.publicUrl,
         captured_at: new Date().toISOString()
-      });
+      })
+      .select();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      console.error("❌ DATABASE ERROR DETAILS:", dbError.message);
+      throw dbError;
+    }
+
+    console.log("✅ DATABASE SUCCESS:", dbData);
+    console.log("🎉 --- SCREENSHOT SYNC COMPLETE ---");
     return true;
   }
 };
