@@ -14,7 +14,9 @@ export const setupActivityLogger = (
   });
 
   if (!userSession?.user?.id || !session?.id || status !== 'active' || !window.electron) {
-    console.warn("⚠️ LOGGER BLOCKED BY GUARD CONDITION");
+    console.warn("⚠️ LOGGER BLOCKED BY GUARD CONDITION", {
+      reason: !userSession?.user?.id ? "No User ID" : !session?.id ? "No Session ID" : status !== 'active' ? "Status Not Active" : "No Electron API"
+    });
     return () => {};
   }
 
@@ -43,40 +45,31 @@ export const setupActivityLogger = (
     const appName = (data.appName || "Unknown Process").toLowerCase();
     const windowTitle = data.windowTitle || "No Active Window";
 
-    console.log("🖥️ PROCESSED DATA:", {
-      appName,
-      windowTitle
-    });
+    console.log("🖥️ PROCESSED DATA:", { appName, windowTitle });
 
     try {
+      console.log("🔍 CHECKING DB FOR EXISTING ENTRY...", { sessionId, userId: userSession.user.id, appName });
 
-      console.log("🔍 CHECKING DB FOR EXISTING ENTRY...");
+      const { data: existingLog, error: fetchError } = await supabase
+        .from('activity_logs')
+        .select('id, metadata')
+        .eq('session_id', sessionId)
+        .eq('user_id', userSession.user.id)
+        .eq('event_type', 'system_activity')
+        .contains('metadata', { app: appName })
+        .maybeSingle();
 
- // Activity rows update logic fix
-const { data: existingLog, error: fetchError } = await supabase
-  .from('activity_logs')
-  .select('id, metadata')
-  .eq('session_id', sessionId)
-  .eq('user_id', userSession.user.id) // Security check add karein
-  .eq('event_type', 'system_activity')
-  .contains('metadata', { app: appName }) // Better JSON matching
-  .maybeSingle();
+      if (fetchError) {
+        console.error("❌ FETCH ERROR (Check RLS or Table Existence):", fetchError);
+      }
 
-      console.log("📦 FETCH RESULT:", {
-        existingLog,
-        fetchError
-      });
+      console.log("📦 FETCH RESULT:", { existingLog, fetchError });
 
       if (existingLog) {
-
         const currentDuration = existingLog.metadata?.duration || 0;
         const newDuration = currentDuration + 5;
 
-        console.log("♻️ UPDATING EXISTING LOG:", {
-          appName,
-          oldDuration: currentDuration,
-          newDuration
-        });
+        console.log("♻️ UPDATING EXISTING LOG:", { appName, oldDuration: currentDuration, newDuration });
 
         const { error: updateError } = await supabase
           .from('activity_logs')
@@ -98,10 +91,9 @@ const { data: existingLog, error: fetchError } = await supabase
         }
 
       } else {
+        console.log("🆕 INSERTING NEW ACTIVITY ROW...", { sessionId, appName });
 
-        console.log("🆕 INSERTING NEW ACTIVITY ROW...");
-
-        const { error: insertError } = await supabase
+        const { data: insertedRow, error: insertError } = await supabase
           .from('activity_logs')
           .insert({
             user_id: userSession.user.id,
@@ -113,12 +105,18 @@ const { data: existingLog, error: fetchError } = await supabase
               duration: 5,
               started_at: new Date().toISOString()
             }
-          });
+          })
+          .select(); // Select isliye lagaya taaki insertion confirm ho sake
 
         if (insertError) {
-          console.error("❌ INSERT ERROR:", insertError);
+          console.error("❌ INSERT ERROR DETAILS:", {
+            code: insertError.code,
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint
+          });
         } else {
-          console.log(`✅ INSERTED: ${appName}`);
+          console.log(`✅ INSERTED SUCCESS:`, insertedRow);
         }
       }
 
