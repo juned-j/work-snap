@@ -5,8 +5,7 @@
 
         {{-- EXTENDING THE HEADER --}}
         @include('filament.pages.header', [
-            'title' => 'Dashboard Overview',
-            'subtitle' => "Welcome back! Here is what's happening with WorkSnap today."
+            
         ])
 
         {{-- SECTION 1 : FULL WIDTH STATS --}}
@@ -57,7 +56,8 @@
             <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
                 @livewire(\App\Filament\Widgets\RecentScreenshotsWidget::class)
             </div>
-               <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            
+            <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
                 @livewire(\App\Filament\Widgets\WorkSnapStats::class)
             </div>
         </div>
