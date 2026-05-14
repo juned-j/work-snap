@@ -16,69 +16,58 @@ class ProductivityOverview extends BaseWidget
         $user = auth()->user();
 
         $todayStart = now()->startOfDay();
-        $todayEnd = now()->endOfDay();
+        $todayEnd   = now()->endOfDay();
 
-        $weekStart = now()->startOfWeek();
-        $weekEnd = now()->endOfWeek();
+        $weekStart  = now()->startOfWeek();
+        $weekEnd    = now()->endOfWeek();
 
-     
-
+        /*
+        |--------------------------------------------------------------------------
+        | BASE QUERY (scoped by user_id if not admin)
+        |--------------------------------------------------------------------------
+        */
         $baseQuery = WorkSession::query();
 
-        // Employee => only own data
-        // Admin => all data
         if (! $user->canViewAll()) {
             $baseQuery->where('user_id', $user->id);
         }
 
-     
-
+        /*
+        |--------------------------------------------------------------------------
+        | TOTAL HOURS TODAY (sessions started today)
+        |--------------------------------------------------------------------------
+        */
         $todaySessions = (clone $baseQuery)
-            ->whereBetween('start_time', [
-                $todayStart,
-                $todayEnd,
-            ])
+            ->whereBetween('start_time', [$todayStart, $todayEnd])
             ->get();
 
         $todayHours = round(
-            $todaySessions->sum(
-                fn ($session) => $session->duration_hours
-            ),
-            1
+            $todaySessions->sum(fn ($session) => $session->duration_hours),
+            2
         );
 
         /*
         |--------------------------------------------------------------------------
-        | WEEKLY HOURS
+        | WEEKLY HOURS (sessions started this week)
         |--------------------------------------------------------------------------
         */
-
         $weeklySessions = (clone $baseQuery)
-            ->whereBetween('start_time', [
-                $weekStart,
-                $weekEnd,
-            ])
+            ->whereBetween('start_time', [$weekStart, $weekEnd])
             ->get();
 
         $weeklyHours = round(
-            $weeklySessions->sum(
-                fn ($session) => $session->duration_hours
-            ),
-            1
+            $weeklySessions->sum(fn ($session) => $session->duration_hours),
+            2
         );
 
         /*
         |--------------------------------------------------------------------------
-        | IDLE SESSIONS
+        | IDLE SESSIONS (only today)
         |--------------------------------------------------------------------------
         */
-
         $idleCount = (clone $baseQuery)
             ->where('status', 'idle')
-            ->whereBetween('start_time', [
-                $todayStart,
-                $todayEnd,
-            ])
+            ->whereBetween('start_time', [$todayStart, $todayEnd])
             ->count();
 
         /*
@@ -86,47 +75,27 @@ class ProductivityOverview extends BaseWidget
         | STATS ARRAY
         |--------------------------------------------------------------------------
         */
-
         $stats = [
-
             Stat::make(
-                $user->canViewAll()
-                    ? 'Total Hours Today'
-                    : 'My Hours Today',
-
+                $user->canViewAll() ? 'Total Hours Today' : 'My Hours Today',
                 $todayHours . ' hrs'
             )
                 ->description('Tracked working hours today')
                 ->color('success')
                 ->icon('heroicon-m-clock')
                 ->extraAttributes([
-                    'class' => '
-                        bg-transparent
-                        shadow-none
-                        ring-0
-                        border-0
-                        dark:bg-transparent
-                    ',
+                    'class' => 'bg-transparent shadow-none ring-0 border-0 dark:bg-transparent',
                 ]),
 
             Stat::make(
-                $user->canViewAll()
-                    ? 'Weekly Hours'
-                    : 'My Weekly Hours',
-
+                $user->canViewAll() ? 'Weekly Hours' : 'My Weekly Hours',
                 $weeklyHours . ' hrs'
             )
                 ->description('Current week tracked hours')
                 ->color('primary')
                 ->icon('heroicon-m-calendar-days')
                 ->extraAttributes([
-                    'class' => '
-                        bg-transparent
-                        shadow-none
-                        ring-0
-                        border-0
-                        dark:bg-transparent
-                    ',
+                    'class' => 'bg-transparent shadow-none ring-0 border-0 dark:bg-transparent',
                 ]),
 
             Stat::make(
@@ -137,51 +106,30 @@ class ProductivityOverview extends BaseWidget
                 ->color('warning')
                 ->icon('heroicon-m-pause-circle')
                 ->extraAttributes([
-                    'class' => '
-                        bg-transparent
-                        shadow-none
-                        ring-0
-                        border-0
-                        dark:bg-transparent
-                    ',
+                    'class' => 'bg-transparent shadow-none ring-0 border-0 dark:bg-transparent',
                 ]),
         ];
 
         /*
         |--------------------------------------------------------------------------
-        | TOP ACTIVE EMPLOYEE
+        | TOP ACTIVE EMPLOYEE (Admin only, sessions started today)
         |--------------------------------------------------------------------------
-        | Only visible for admin
         */
-
         if ($user->canViewAll()) {
-
-            $topEmployee = User::with('workSessions')
+            $topEmployee = User::with(['workSessions' => function ($q) use ($todayStart, $todayEnd) {
+                    $q->whereBetween('start_time', [$todayStart, $todayEnd]);
+                }])
                 ->get()
-                ->map(function ($employee) use ($todayStart, $todayEnd) {
-
-                    $hours = $employee->workSessions
-                        ->whereBetween('start_time', [
-                            $todayStart,
-                            $todayEnd,
-                        ])
-                        ->sum(
-                            fn ($session) => $session->duration_hours
-                        );
-
+                ->map(function ($employee) {
+                    $hours = $employee->workSessions->sum(fn ($session) => $session->duration_hours);
                     $employee->total_hours = $hours;
-
                     return $employee;
                 })
                 ->sortByDesc('total_hours')
                 ->first();
 
-            $topEmployeeName = $topEmployee?->name ?? 'N/A';
-
-            $topEmployeeHours = round(
-                $topEmployee?->total_hours ?? 0,
-                1
-            );
+            $topEmployeeName  = $topEmployee?->name ?? 'N/A';
+            $topEmployeeHours = round($topEmployee?->total_hours ?? 0, 2);
 
             $stats[] = Stat::make(
                 'Top Active Employee',
@@ -191,13 +139,7 @@ class ProductivityOverview extends BaseWidget
                 ->color('info')
                 ->icon('heroicon-m-trophy')
                 ->extraAttributes([
-                    'class' => '
-                        bg-transparent
-                        shadow-none
-                        ring-0
-                        border-0
-                        dark:bg-transparent
-                    ',
+                    'class' => 'bg-transparent shadow-none ring-0 border-0 dark:bg-transparent',
                 ]);
         }
 
