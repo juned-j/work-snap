@@ -17,9 +17,10 @@
                 </h3>
             </div>
 
+    
             <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                @livewire(\App\Filament\Widgets\WorkSnapStats::class)
-            </div>
+        @livewire(\App\Filament\Widgets\ProductivityOverview::class)
+    </div>
         </div>
 
         {{-- SECTION 2 : ACTIVITY + CONTROL --}}
@@ -55,6 +56,9 @@
 
             <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
                 @livewire(\App\Filament\Widgets\RecentScreenshotsWidget::class)
+            </div>
+               <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                @livewire(\App\Filament\Widgets\WorkSnapStats::class)
             </div>
         </div>
 
