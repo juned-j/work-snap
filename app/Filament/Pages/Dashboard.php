@@ -8,37 +8,50 @@ use Livewire\Attributes\Url;
 class Dashboard extends Page
 {
     protected static string $view = 'filament.pages.dashboard';
-
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static ?string $navigationLabel = 'Dashboard';
-    
-    // FIX: Title ko khali mat chhodein, kam se kam ek string dein
-    protected static ?string $title = '';
-    
     protected static ?int $navigationSort = -5;
+protected static ?string $title = '';
 
-    // URL properties
-    #[Url] public $startDate;
-    #[Url] public $endDate;
-    #[Url] public $selectedUser = null;
+
+    #[Url]
+    public $startDate;
+
+    #[Url]
+    public $endDate;
+
+    #[Url]
+    public $selectedUser = null;
 
     public function mount(): void
     {
-        // FIX: Default dates ko initialize karna zaroori hai
         $this->startDate = now()->toDateString();
         $this->endDate = now()->toDateString();
+        $this->dispatchFilterUpdate();
     }
 
-    public function updated($propertyName)
+    private function dispatchFilterUpdate(): void
     {
-        if (in_array($propertyName, ['startDate', 'endDate', 'selectedUser'])) {
-            // Widgets ko update bhejein
-            $this->dispatch('filtersUpdated', filters: [
-                'startDate' => $this->startDate,
-                'endDate' => $this->endDate,
-                'selectedUser' => $this->selectedUser,
-            ]);
+        $this->dispatch('filtersUpdated', [
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
+            'selectedUser' => $this->selectedUser,
+        ]);
+    }
+
+    public function updated(string $propertyName, $value): void
+    {
+        if (in_array($propertyName, ['startDate', 'endDate', 'selectedUser'], true)) {
+            $this->dispatchFilterUpdate();
         }
+    }
+
+    public function resetFilters(): void
+    {
+        $this->selectedUser = '';
+        $this->startDate = now()->toDateString();
+        $this->endDate = now()->toDateString();
+        $this->dispatchFilterUpdate();
     }
 
     public static function canAccess(): bool

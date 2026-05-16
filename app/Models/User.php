@@ -9,10 +9,11 @@ use Illuminate\Support\Str;
 use App\Models\Role;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasApiTokens;
 
     /*
     |--------------------------------------------------------------------------
@@ -34,6 +35,7 @@ class User extends Authenticatable
         'password',
         'role_id',
         'manager_id',
+        'role',
     ];
 
     /*

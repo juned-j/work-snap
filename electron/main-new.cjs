@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer } = require('electron')
 const path = require('path')
+const activityLogger = require('../renderer/src/services/activityLogger')
 
 let currentSession = null
 let mainWindow = null
@@ -50,28 +51,72 @@ ipcMain.handle('start-session', async () => {
   }
 
   console.log('Session started', currentSession)
+
+  try {
+    await activityLogger.logActivity({
+      session_id: currentSession.id,
+      event_type: 'start-session',
+      metadata: { start_time: currentSession.start_time },
+    })
+  } catch (error) {
+    console.error('Failed to log start-session activity:', error)
+  }
+
   return currentSession
 })
 
 // PAUSE
-ipcMain.handle('pause-session', () => {
+ipcMain.handle('pause-session', async () => {
   if (currentSession) {
     currentSession.status = 'paused'
     console.log('Session paused')
+
+    try {
+      await activityLogger.logActivity({
+        session_id: currentSession.id,
+        event_type: 'pause-session',
+        metadata: { status: 'paused' },
+      })
+    } catch (error) {
+      console.error('Failed to log pause-session activity:', error)
+    }
   }
 })
 
 // RESUME
-ipcMain.handle('resume-session', () => {
+ipcMain.handle('resume-session', async () => {
   if (currentSession) {
     currentSession.status = 'active'
     console.log('Session resumed')
+
+    try {
+      await activityLogger.logActivity({
+        session_id: currentSession.id,
+        event_type: 'resume-session',
+        metadata: { status: 'active' },
+      })
+    } catch (error) {
+      console.error('Failed to log resume-session activity:', error)
+    }
   }
 })
 
 // STOP
-ipcMain.handle('stop-session', () => {
+ipcMain.handle('stop-session', async () => {
   console.log('Session stopped')
+
+  if (currentSession) {
+    try {
+      await activityLogger.logActivity({
+        session_id: currentSession.id,
+        event_type: 'stop-session',
+        metadata: { status: 'stopped' },
+      })
+    } catch (error) {
+      console.error('Failed to log stop-session activity:', error)
+    }
+  }
+
   currentSession = null
 })
 

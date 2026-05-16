@@ -3,82 +3,58 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Screenshot;
+use Carbon\Carbon;
 use Filament\Widgets\Widget;
-use Livewire\Attributes\On;
+use Illuminate\Support\Facades\Log;
 use Livewire\WithPagination;
 
 class RecentScreenshotsWidget extends Widget
 {
     use WithPagination;
 
-    protected static string $view =
-        'filament.widgets.recent-screenshots-widget';
+    protected static string $view = 'filament.widgets.recent-screenshots-widget';
+    public static bool $isLazy = false;
 
-    public $startDate;
+    public ?string $startDate = null;
 
-    public $endDate;
+    public ?string $endDate = null;
 
-    public $selectedUser;
+    public ?string $selectedUser = null;
 
-    #[On('filtersUpdated')]
-    public function updateFilters($filters): void
+    protected $listeners = [
+        'filtersUpdated',
+    ];
+
+    public function mount(?string $startDate = null, ?string $endDate = null, ?string $selectedUser = null): void
     {
-        $this->startDate = $filters['startDate'] ?? null;
+        $this->startDate = $startDate ?? now()->toDateString();
+        $this->endDate = $endDate ?? now()->toDateString();
+        $this->selectedUser = $selectedUser;
+    }
 
-        $this->endDate = $filters['endDate'] ?? null;
-
-        $this->selectedUser = $filters['selectedUser'] ?? null;
-
-        $this->resetPage();
+    public function filtersUpdated(array $filters): void
+    {
+        $this->startDate = $filters['startDate'] ?? $this->startDate;
+        $this->endDate = $filters['endDate'] ?? $this->endDate;
+        $this->selectedUser = $filters['selectedUser'] ?? $this->selectedUser;
     }
 
     protected function getViewData(): array
     {
-        $user = auth()->user();
+        // Parse dates
+        $filterStartDate = $this->startDate ? Carbon::parse($this->startDate)->startOfDay() : Carbon::today()->startOfDay();
+        $filterEndDate = $this->endDate ? Carbon::parse($this->endDate)->endOfDay() : Carbon::today()->endOfDay();
 
-       
-
-        $query = Screenshot::with([
-            'user',
-            'session',
+        Log::debug('RecentScreenshotsWidget filters', [
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
+            'selectedUser' => $this->selectedUser,
         ]);
 
-       
-
-        if ($user->canViewAll()) {
-
-          
-
-            if ($this->selectedUser) {
-                $query->where('user_id', $this->selectedUser);
-            }
-
-        } else {
-
-          
-            $query->where('user_id', $user->id);
-        }
-
-       
-
-        $query->when(
-            $this->startDate && $this->endDate,
-            function ($q) {
-
-                return $q->whereBetween('captured_at', [
-                    $this->startDate . ' 00:00:00',
-                    $this->endDate . ' 23:59:59',
-                ]);
-            }
-        );
-
-     
-
-        $query->whereNotNull('session_id');
-
-    
-
-        $recentScreenshots = $query
+        $recentScreenshots = Screenshot::with(['user', 'session'])
+            ->whereNotNull('session_id')
+            ->when($this->selectedUser, fn($q) => $q->where('user_id', $this->selectedUser))
+            ->whereBetween('captured_at', [$filterStartDate, $filterEndDate])
             ->orderByDesc('captured_at')
             ->paginate(6);
 

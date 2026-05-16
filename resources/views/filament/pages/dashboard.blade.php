@@ -1,11 +1,21 @@
-﻿<x-filament-panels::page>
+﻿@push('styles')
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fi-dashboard-page > section {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+    </style>
+@endpush
 
-    <div class="space-y-8 p-6 w-full">
+<x-filament-panels::page class="fi-dashboard-page">
+    <div class="space-y-6 w-full">
+
+     
 
         {{-- EXTENDING THE HEADER --}}
         @include('filament.pages.header', [
-            
+
         ])
 
         {{-- SECTION 1 : FULL WIDTH STATS --}}
@@ -17,9 +27,9 @@
             </div>
 
     
-            <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        @livewire(\App\Filament\Widgets\ProductivityOverview::class)
-    </div>
+            <div wire:key="productivity-{{ $startDate }}-{{ $endDate }}-{{ $selectedUser }}" class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                @livewire(\App\Filament\Widgets\ProductivityOverview::class, ['startDate' => $startDate, 'endDate' => $endDate, 'selectedUser' => $selectedUser], key('productivity-'.$startDate.'-'.$endDate.'-'.$selectedUser))
+            </div>
         </div>
 
         {{-- SECTION 2 : ACTIVITY + CONTROL --}}
@@ -29,8 +39,8 @@
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-1">
                     Activity History
                 </h3>
-                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden h-full">
-                    @livewire(\App\Filament\Widgets\ScreenshotActivityWidget::class)
+                <div wire:key="screenshot-activity-{{ $startDate }}-{{ $endDate }}-{{ $selectedUser }}" class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden h-full">
+                    @livewire(\App\Filament\Widgets\ScreenshotActivityWidget::class, ['startDate' => $startDate, 'endDate' => $endDate, 'selectedUser' => $selectedUser], key('screenshot-activity-'.$startDate.'-'.$endDate.'-'.$selectedUser))
                 </div>
             </div>
 
@@ -39,8 +49,8 @@
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-1">
                     Live Session Control
                 </h3>
-                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-4 h-full">
-                    @livewire(\App\Filament\Widgets\SessionControlWidget::class)
+                <div wire:key="session-control-{{ $startDate }}-{{ $endDate }}-{{ $selectedUser }}" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-4 h-full">
+                    @livewire(\App\Filament\Widgets\SessionControlWidget::class, ['startDate' => $startDate, 'endDate' => $endDate, 'selectedUser' => $selectedUser], key('session-control-'.$startDate.'-'.$endDate.'-'.$selectedUser))
                 </div>
             </div>
         </div>
@@ -53,12 +63,12 @@
                 </h3>
             </div>
 
-            <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
-                @livewire(\App\Filament\Widgets\RecentScreenshotsWidget::class)
+            <div wire:key="recent-screenshots-{{ $startDate }}-{{ $endDate }}-{{ $selectedUser }}" class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
+                @livewire(\App\Filament\Widgets\RecentScreenshotsWidget::class, ['startDate' => $startDate, 'endDate' => $endDate, 'selectedUser' => $selectedUser], key('recent-screenshots-'.$startDate.'-'.$endDate.'-'.$selectedUser))
             </div>
             
-            <div class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
-                @livewire(\App\Filament\Widgets\WorkSnapStats::class)
+            <div wire:key="work-snap-stats-{{ $startDate }}-{{ $endDate }}-{{ $selectedUser }}" class="w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-2">
+                @livewire(\App\Filament\Widgets\WorkSnapStats::class, ['startDate' => $startDate, 'endDate' => $endDate, 'selectedUser' => $selectedUser], key('work-snap-stats-'.$startDate.'-'.$endDate.'-'.$selectedUser))
             </div>
         </div>
 

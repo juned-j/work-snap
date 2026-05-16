@@ -1,3 +1,5 @@
+import { apiClient } from './client'
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 export interface SessionData {
@@ -19,112 +21,135 @@ export interface ScreenshotData {
   captured_at: string
 }
 
-// Session API calls
+// ===========================
+// SESSION API CALLS (Secured)
+// ===========================
+
+export async function getCurrentSession(): Promise<SessionData> {
+  return apiClient.get('/session/current')
+}
+
 export async function createSession(): Promise<SessionData> {
-  const response = await fetch(`${API_BASE}/sessions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
-    body: JSON.stringify({
-      start_time: new Date().toISOString()
-    })
+  return apiClient.post('/session/start', {
+    start_time: new Date().toISOString()
   })
-  if (!response.ok) throw new Error('Failed to create session')
-  return response.json()
 }
 
 export async function updateSession(
   sessionId: number,
   data: Partial<SessionData>
 ): Promise<SessionData> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
-    body: JSON.stringify(data)
-  })
-  if (!response.ok) throw new Error('Failed to update session')
-  return response.json()
+  return apiClient.put(`/session/${sessionId}`, data)
 }
 
 export async function pauseSession(sessionId: number): Promise<SessionData> {
-  return updateSession(sessionId, {
-    status: 'paused',
-    total_duration: Math.floor((Date.now() - new Date(localStorage.getItem('sessionStart') || Date.now()).getTime()) / 1000)
-  })
+  return apiClient.post(`/session/pause/${sessionId}`, {})
 }
 
 export async function stopSession(sessionId: number): Promise<SessionData> {
-  return updateSession(sessionId, {
-    status: 'stopped',
-    end_time: new Date().toISOString(),
-    total_duration: Math.floor((Date.now() - new Date(localStorage.getItem('sessionStart') || Date.now()).getTime()) / 1000)
-  })
+  return apiClient.post(`/session/stop/${sessionId}`, {})
+}
+
+export async function resumeSession(sessionId: number): Promise<SessionData> {
+  return apiClient.post(`/session/resume/${sessionId}`, {})
 }
 
 export async function getSession(sessionId: number): Promise<SessionData> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    }
-  })
-  if (!response.ok) throw new Error('Failed to fetch session')
-  return response.json()
+  return apiClient.get(`/session/${sessionId}`)
 }
 
-// Screenshot API calls
+// ============================
+// SCREENSHOT API CALLS (Secured)
+// ============================
+
 export async function uploadScreenshot(
   sessionId: number,
   imageData: string,
   idleDetected: boolean = false
 ): Promise<ScreenshotData> {
-  const response = await fetch(`${API_BASE}/screenshots`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
-    body: JSON.stringify({
-      session_id: sessionId,
-      image_data: imageData,
-      idle_detected: idleDetected,
-      captured_at: new Date().toISOString()
-    })
+  return apiClient.post('/screenshot', {
+    session_id: sessionId,
+    image_data: imageData,
+    idle_detected: idleDetected,
+    captured_at: new Date().toISOString()
   })
-  if (!response.ok) throw new Error('Failed to upload screenshot')
-  return response.json()
 }
 
-// Auth API calls
+export async function getScreenshots(sessionId?: number, limit = 50): Promise<any> {
+  const params = new URLSearchParams()
+  if (sessionId) params.append('session_id', sessionId.toString())
+  params.append('limit', limit.toString())
+
+  return apiClient.get(`/screenshots?${params.toString()}`)
+}
+
+export async function getScreenshot(screenshotId: number): Promise<ScreenshotData> {
+  return apiClient.get(`/screenshot/${screenshotId}`)
+}
+
+export async function downloadScreenshot(screenshotId: number): Promise<void> {
+  return apiClient.downloadFile(`/screenshot/${screenshotId}/download`, `screenshot_${screenshotId}.png`)
+}
+
+export async function deleteScreenshot(screenshotId: number): Promise<any> {
+  return apiClient.delete(`/screenshot/${screenshotId}`)
+}
+
+// =============================
+// ACTIVITY LOG API CALLS (Secured)
+// =============================
+
+export async function getActivityLogs(sessionId?: number, limit = 50): Promise<any> {
+  const params = new URLSearchParams()
+  if (sessionId) params.append('session_id', sessionId.toString())
+  params.append('limit', limit.toString())
+
+  return apiClient.get(`/activities?${params.toString()}`)
+}
+
+export async function getActivitySummary(sessionId: number): Promise<any> {
+  return apiClient.get(`/session/${sessionId}/activities/summary`)
+}
+
+export async function getAdminActivityLogs(userId?: string, limit = 50): Promise<any> {
+  const params = new URLSearchParams()
+  if (userId) params.append('user_id', userId)
+  params.append('limit', limit.toString())
+
+  return apiClient.get(`/activities/admin?${params.toString()}`)
+}
+
+// ===========================
+// AUTH API CALLS (Public)
+// ===========================
+
 export async function login(email: string, password: string): Promise<{ token: string; user: any }> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+  const response = await apiClient.postPublic('/auth/login', {
+    email,
+    password
   })
-  if (!response.ok) throw new Error('Login failed')
-  const data = await response.json()
-  localStorage.setItem('token', data.token)
-  return data
+  
+  // Token should be stored in AuthContext, not here
+  return response
 }
 
 export async function register(name: string, email: string, password: string): Promise<{ token: string; user: any }> {
-  const response = await fetch(`${API_BASE}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password })
+  const response = await apiClient.postPublic('/auth/register', {
+    name,
+    email,
+    password,
+    password_confirmation: password
   })
-  if (!response.ok) throw new Error('Registration failed')
-  const data = await response.json()
-  localStorage.setItem('token', data.token)
-  return data
+
+  return response
 }
 
 export async function logout(): Promise<void> {
-  localStorage.removeItem('token')
-  localStorage.removeItem('sessionStart')
+  try {
+    await apiClient.post('/auth/logout', {})
+  } catch (error) {
+    console.warn('Logout API error:', error)
+  }
+
+  // Session storage is cleared in AuthContext
 }

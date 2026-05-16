@@ -15,11 +15,15 @@ class WorkSession extends Model
         'end_time',
         'status',
         'is_active',
+        'paused_at',
+        'ip_address',
+        'user_agent',
     ];
 
     protected $casts = [
         'start_time' => 'datetime',
         'end_time' => 'datetime',
+        'paused_at' => 'datetime',
         'is_active' => 'boolean',
     ];
 
@@ -33,11 +37,21 @@ class WorkSession extends Model
         return $this->hasMany(Screenshot::class, 'session_id');
     }
 
+    public function activityLogs()
+    {
+        return $this->hasMany(ActivityLog::class, 'session_id');
+    }
+
     public function getDurationHoursAttribute(): float
     {
-        $end = $this->end_time ?: now();
-
+        // If no start_time, return 0
         if (! $this->start_time) {
+            return 0;
+        }
+
+        $end = $this->end_time ?? now();
+
+        if ($end->lessThan($this->start_time)) {
             return 0;
         }
 

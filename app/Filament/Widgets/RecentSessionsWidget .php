@@ -9,6 +9,8 @@ use Livewire\Attributes\Reactive;
 
 class RecentSessionsWidget extends Widget
 {
+
+
     protected static string $view =
         'filament.widgets.recent-sessions-widget';
 

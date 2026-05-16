@@ -1,7 +1,7 @@
-const { setupIpcHandlers } = require('./ipcHandlers.cjs');
+const { setupIpcHandlers } = require('./ipc/ipcHandlers.js')
 
-function initializeApp({ mainWindow, powerMonitor }) {
-  setupIpcHandlers({ mainWindow, powerMonitor });
+function initializeApp({ powerMonitor }) {
+  setupIpcHandlers({ powerMonitor })
 }
 
 module.exports = {

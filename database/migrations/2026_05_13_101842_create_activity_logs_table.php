@@ -12,11 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('activity_logs', function (Blueprint $table) {
-            // id: int8 Primary Key (Auto-incrementing)
             $table->id(); 
 
-            // user_id: uuid (Foreign Key reference)
+            // user_id: uuid (Foreign Key reference to users table)
             $table->uuid('user_id');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
 
             // session_id: int8 (Session tracking)
             $table->bigInteger('session_id');
@@ -24,16 +24,11 @@ return new class extends Migration
             // event_type: varchar
             $table->string('event_type');
 
-            // metadata: jsonb (Supabase/Postgres specific)
-            // Note: Agar MySQL hai toh simple json() use karein
-            $table->jsonb('metadata')->default('{}');
+            // metadata: json (compatible with MySQL and PostgreSQL)
+            $table->json('metadata')->default(json_encode([]));
 
-            // created_at: timestamptz
-            // timestamps() default 'created_at' aur 'updated_at' bana deta hai
-            $table->timestampTz('created_at')->useCurrent();
-            
-            // Agar aapko updated_at bhi chahiye toh:
-            // $table->timestampTz('updated_at')->useCurrent()->useCurrentOnUpdate();
+            // created_at and updated_at timestamps
+            $table->timestampsTz();
 
             // Indexes for performance
             $table->index('session_id');

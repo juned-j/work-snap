@@ -17,10 +17,10 @@ declare global {
       }>
       
       // Global system activity listeners
-      onActivityUpdate: (callback: (data: any) => void) => void
-      onActivityDetected: (callback: (data: any) => void) => void
-      onActivityIdle: (callback: (data: any) => void) => void
-      onActivityStatusChanged: (callback: (data: { timestamp: string; idleTime: number; isActive: boolean; status: 'active' | 'idle' }) => void) => void
+      onActivityUpdate: (callback: (data: any) => void) => () => void
+      onActivityDetected: (callback: (data: any) => void) => () => void
+      onActivityIdle: (callback: (data: any) => void) => () => void
+      onActivityStatusChanged: (callback: (data: { timestamp: string; idleTime: number; isActive: boolean; status: 'active' | 'idle' }) => void) => () => void
     }
   }
 }

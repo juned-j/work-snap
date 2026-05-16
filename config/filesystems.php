@@ -56,6 +56,13 @@ return [
             'throw' => false,
         ],
 
+        'screenshots' => [
+            'driver' => 'local',
+            'root' => storage_path('app/screenshots'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         'supabase' => [
             'driver' => 's3',
             'key' => env('SUPABASE_STORAGE_KEY'),

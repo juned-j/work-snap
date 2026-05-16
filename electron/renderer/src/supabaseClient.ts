@@ -5,7 +5,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storageKey: 'worksnap-auth-token',
+    storageKey: 'auth_token',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,

@@ -6,51 +6,93 @@ use App\Models\User;
 use App\Models\WorkSession;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class ProductivityOverview extends BaseWidget
 {
     protected static ?int $sort = 1;
+    public static bool $isLazy = false;
+
+    public ?string $startDate = null;
+
+    public ?string $endDate = null;
+
+    public ?string $selectedUser = null;
+
+    protected $listeners = [
+        'filtersUpdated',
+    ];
+
+    public function mount(?string $startDate = null, ?string $endDate = null, ?string $selectedUser = null): void
+    {
+        $this->startDate = $startDate ?? now()->toDateString();
+        $this->endDate = $endDate ?? now()->toDateString();
+        $this->selectedUser = $selectedUser;
+    }
+
+    public function filtersUpdated(array $filters): void
+    {
+        $this->startDate = $filters['startDate'] ?? $this->startDate;
+        $this->endDate = $filters['endDate'] ?? $this->endDate;
+        $this->selectedUser = $filters['selectedUser'] ?? $this->selectedUser;
+    }
 
     protected function getStats(): array
     {
         $user = auth()->user();
 
-        $todayStart = now()->startOfDay();
-        $todayEnd   = now()->endOfDay();
+        // Parse dates with validation
+        $filterStartDate = $this->startDate ? Carbon::parse($this->startDate)->startOfDay() : Carbon::today()->startOfDay();
+        $filterEndDate = $this->endDate ? Carbon::parse($this->endDate)->endOfDay() : Carbon::today()->endOfDay();
 
-        $weekStart  = now()->startOfWeek();
-        $weekEnd    = now()->endOfWeek();
+        Log::debug('ProductivityOverview filters', [
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
+            'selectedUser' => $this->selectedUser,
+        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | BASE QUERY (scoped by user_id if not admin)
+        | BASE QUERY - Filter by user
         |--------------------------------------------------------------------------
         */
         $baseQuery = WorkSession::query();
 
-        if (! $user->canViewAll()) {
+        // Filter by selected user or current user
+        if ($this->selectedUser) {
+            $baseQuery->where('user_id', $this->selectedUser);
+        } elseif (!$user->canViewAll()) {
             $baseQuery->where('user_id', $user->id);
         }
 
+        Log::debug('ProductivityOverview query', [
+            'sql' => $baseQuery->toSql(),
+            'bindings' => $baseQuery->getBindings(),
+        ]);
+
         /*
         |--------------------------------------------------------------------------
-        | TOTAL HOURS TODAY (sessions started today)
+        | HOURS IN SELECTED DATE RANGE
         |--------------------------------------------------------------------------
         */
-        $todaySessions = (clone $baseQuery)
-            ->whereBetween('start_time', [$todayStart, $todayEnd])
+        $dateRangeSessions = (clone $baseQuery)
+            ->whereBetween('start_time', [$filterStartDate, $filterEndDate])
             ->get();
 
-        $todayHours = round(
-            $todaySessions->sum(fn ($session) => $session->duration_hours),
+        $dateRangeHours = round(
+            $dateRangeSessions->sum(fn ($session) => $session->duration_hours),
             2
         );
 
         /*
         |--------------------------------------------------------------------------
-        | WEEKLY HOURS (sessions started this week)
+        | THIS WEEK HOURS
         |--------------------------------------------------------------------------
         */
+        $weekStart = Carbon::now()->startOfWeek()->startOfDay();
+        $weekEnd = Carbon::now()->endOfWeek()->endOfDay();
+
         $weeklySessions = (clone $baseQuery)
             ->whereBetween('start_time', [$weekStart, $weekEnd])
             ->get();
@@ -62,25 +104,48 @@ class ProductivityOverview extends BaseWidget
 
         /*
         |--------------------------------------------------------------------------
-        | IDLE SESSIONS (only today)
+        | TOP ACTIVE EMPLOYEE NAME
+        |--------------------------------------------------------------------------
+        */
+        $topEmployee = User::with(['workSessions' => function ($q) use ($filterStartDate, $filterEndDate) {
+            $q->whereBetween('start_time', [$filterStartDate, $filterEndDate]);
+        }])
+            ->when($this->selectedUser, fn ($q) => $q->where('id', $this->selectedUser))
+            ->when(! $user->canViewAll(), fn ($q) => $q->where('id', $user->id))
+            ->whereHas('workSessions', function ($q) use ($filterStartDate, $filterEndDate) {
+                $q->whereBetween('start_time', [$filterStartDate, $filterEndDate]);
+            })
+            ->get()
+            ->map(function ($emp) {
+                return [
+                    'user' => $emp,
+                    'hours' => $emp->workSessions->sum(fn ($s) => $s->duration_hours),
+                ];
+            })
+            ->sortByDesc('hours')
+            ->first();
+
+        $topEmployeeName = $topEmployee['user']->name ?? 'N/A';
+        $topEmployeeHours = round($topEmployee['hours'] ?? 0, 2);
+
+        /*
+        |--------------------------------------------------------------------------
+        | IDLE SESSIONS IN DATE RANGE
         |--------------------------------------------------------------------------
         */
         $idleCount = (clone $baseQuery)
             ->where('status', 'idle')
-            ->whereBetween('start_time', [$todayStart, $todayEnd])
+            ->whereBetween('start_time', [$filterStartDate, $filterEndDate])
             ->count();
 
-        /*
-        |--------------------------------------------------------------------------
-        | STATS ARRAY
-        |--------------------------------------------------------------------------
-        */
         $stats = [
             Stat::make(
-                $user->canViewAll() ? 'Total Hours Today' : 'My Hours Today',
-                $todayHours . ' hrs'
+                $user->canViewAll() ? 'Total Hours' : 'My Hours',
+                $dateRangeHours . ' hrs'
             )
-                ->description('Tracked working hours today')
+                ->description($this->startDate && $this->endDate
+                    ? "From {$this->startDate} to {$this->endDate}"
+                    : 'Today\'s tracked hours')
                 ->color('success')
                 ->icon('heroicon-m-clock')
                 ->extraAttributes([
@@ -99,10 +164,21 @@ class ProductivityOverview extends BaseWidget
                 ]),
 
             Stat::make(
+                'Top Active Employee',
+                $topEmployeeName
+            )
+                ->description($topEmployeeHours > 0 ? "{$topEmployeeHours} hrs" : 'No active employee')
+                ->color('success')
+                ->icon('heroicon-m-user')
+                ->extraAttributes([
+                    'class' => 'bg-transparent shadow-none ring-0 border-0 dark:bg-transparent',
+                ]),
+
+            Stat::make(
                 'Idle Sessions',
                 $idleCount
             )
-                ->description('Idle sessions today')
+                ->description('Idle sessions in selected period')
                 ->color('warning')
                 ->icon('heroicon-m-pause-circle')
                 ->extraAttributes([
@@ -112,37 +188,10 @@ class ProductivityOverview extends BaseWidget
 
         /*
         |--------------------------------------------------------------------------
-        | TOP ACTIVE EMPLOYEE (Admin only, sessions started today)
+        | TOP EMPLOYEE (Admin only, when no user selected)
         |--------------------------------------------------------------------------
         */
-        if ($user->canViewAll()) {
-            $topEmployee = User::with(['workSessions' => function ($q) use ($todayStart, $todayEnd) {
-                    $q->whereBetween('start_time', [$todayStart, $todayEnd]);
-                }])
-                ->get()
-                ->map(function ($employee) {
-                    $hours = $employee->workSessions->sum(fn ($session) => $session->duration_hours);
-                    $employee->total_hours = $hours;
-                    return $employee;
-                })
-                ->sortByDesc('total_hours')
-                ->first();
-
-            $topEmployeeName  = $topEmployee?->name ?? 'N/A';
-            $topEmployeeHours = round($topEmployee?->total_hours ?? 0, 2);
-
-            $stats[] = Stat::make(
-                'Top Active Employee',
-                $topEmployeeName
-            )
-                ->description($topEmployeeHours . ' hrs today')
-                ->color('info')
-                ->icon('heroicon-m-trophy')
-                ->extraAttributes([
-                    'class' => 'bg-transparent shadow-none ring-0 border-0 dark:bg-transparent',
-                ]);
-        }
-
         return $stats;
     }
 }
+    

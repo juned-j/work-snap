@@ -1,134 +1,118 @@
-import { supabase } from '../api/supabase';
+﻿import { electronApi, hasElectronApi } from '../utils/electronApi'
+import { startLocalActivityTracker } from './localActivityTracker'
+import { insertActivityEvent, upsertAppUsage } from '../db/activityLogs'
+import { buildActivityMetadata } from '../utils/activityUtils'
 
 export const setupActivityLogger = (
   userSession: any,
   session: any,
   status: string
 ) => {
+  const userId = userSession?.user?.id
+  const sessionId = Number(session?.id)
 
-  console.log("🧠 LOGGER INIT:", {
-    userId: userSession?.user?.id,
-    sessionId: session?.id,
+  console.log('🧠 TRACKER INIT:', {
+    userId,
+    sessionId,
     status,
-    hasElectron: !!window.electron
-  });
+    hasElectron: hasElectronApi()
+  })
 
-  if (!userSession?.user?.id || !session?.id || status !== 'active' || !window.electron) {
-    console.warn("⚠️ LOGGER BLOCKED BY GUARD CONDITION", {
-      reason: !userSession?.user?.id ? "No User ID" : !session?.id ? "No Session ID" : status !== 'active' ? "Status Not Active" : "No Electron API"
-    });
-    return () => {};
+  if (!userId || !sessionId || status !== 'active' || !hasElectronApi()) {
+    console.warn('⚠️ Activity logger skipped due to missing session, status, or Electron API')
+    return () => {}
   }
-
-  const electronApi = (window as any).electron;
 
   if (!electronApi?.onActivityUpdate) {
-    console.warn("❌ Electron IPC API NOT FOUND");
-    return () => {};
+    console.warn('❌ Electron IPC activity API unavailable')
+    return () => {}
   }
 
-  console.log("🚀 Tracking Started for Session:", session.id);
+  let currentSystemState = {
+    appName: 'Unknown',
+    windowTitle: 'Unknown',
+    idleTime: 0,
+    isActive: true,
+    status: 'active'
+  }
 
-  const sessionId = Number(session.id);
+  const logSystemPayload = async (payload: any) => {
+    currentSystemState = payload
+    const metadata = buildActivityMetadata(payload)
 
-  console.log("🔎 Normalized sessionId:", sessionId);
-
-  const removeListener = electronApi.onActivityUpdate(async (data: any) => {
-
-    console.log("📡 RAW ELECTRON DATA:", data);
-
-    if (status !== 'active') {
-      console.warn("⛔ STATUS NOT ACTIVE:", status);
-      return;
+    if (payload.eventType === 'idle' || payload.eventType === 'resume' || payload.eventType === 'app_switch') {
+      await insertActivityEvent({
+        userId,
+        sessionId,
+        eventType: payload.eventType,
+        metadata
+      })
+      console.log('📌 Logged event:', payload.eventType, metadata)
     }
 
-    const appName = (data.appName || "Unknown Process").toLowerCase();
-    const windowTitle = data.windowTitle || "No Active Window";
+    if (payload.isActive) {
+      await upsertAppUsage({
+        userId,
+        sessionId,
+        appName: metadata.app,
+        title: metadata.title,
+        idleTime: payload.idleTime,
+        isActive: payload.isActive,
+        status: payload.status,
+        durationSeconds: payload.durationSeconds ?? 5
+      })
+    }
+  }
 
-    console.log("🖥️ PROCESSED DATA:", { appName, windowTitle });
-
+  const activityUpdateCleanup = electronApi.onActivityUpdate(async (payload: any) => {
     try {
-      console.log("🔍 CHECKING DB FOR EXISTING ENTRY...", { sessionId, userId: userSession.user.id, appName });
-
-      const { data: existingLog, error: fetchError } = await supabase
-        .from('activity_logs')
-        .select('id, metadata')
-        .eq('session_id', sessionId)
-        .eq('user_id', userSession.user.id)
-        .eq('event_type', 'system_activity')
-        .contains('metadata', { app: appName })
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error("❌ FETCH ERROR (Check RLS or Table Existence):", fetchError);
-      }
-
-      console.log("📦 FETCH RESULT:", { existingLog, fetchError });
-
-      if (existingLog) {
-        const currentDuration = existingLog.metadata?.duration || 0;
-        const newDuration = currentDuration + 5;
-
-        console.log("♻️ UPDATING EXISTING LOG:", { appName, oldDuration: currentDuration, newDuration });
-
-        const { error: updateError } = await supabase
-          .from('activity_logs')
-          .update({
-            metadata: {
-              ...existingLog.metadata,
-              app: appName,
-              title: windowTitle,
-              duration: newDuration,
-              last_update: new Date().toISOString()
-            }
-          })
-          .eq('id', existingLog.id);
-
-        if (updateError) {
-          console.error("❌ UPDATE ERROR:", updateError);
-        } else {
-          console.log(`📊 UPDATED SUCCESS: ${appName} → ${newDuration}s`);
-        }
-
-      } else {
-        console.log("🆕 INSERTING NEW ACTIVITY ROW...", { sessionId, appName });
-
-        const { data: insertedRow, error: insertError } = await supabase
-          .from('activity_logs')
-          .insert({
-            user_id: userSession.user.id,
-            session_id: sessionId,
-            event_type: 'system_activity',
-            metadata: {
-              app: appName,
-              title: windowTitle,
-              duration: 5,
-              started_at: new Date().toISOString()
-            }
-          })
-          .select(); // Select isliye lagaya taaki insertion confirm ho sake
-
-        if (insertError) {
-          console.error("❌ INSERT ERROR DETAILS:", {
-            code: insertError.code,
-            message: insertError.message,
-            details: insertError.details,
-            hint: insertError.hint
-          });
-        } else {
-          console.log(`✅ INSERTED SUCCESS:`, insertedRow);
-        }
-      }
-
-    } catch (err) {
-      console.error("💥 CRITICAL SYNC ERROR:", err);
+      await logSystemPayload(payload)
+    } catch (error) {
+      console.error('❌ Failed to handle activity update:', error)
     }
-  });
+  })
+
+  const appSwitchCleanup = electronApi.onAppSwitch(async (payload: any) => {
+    try {
+      await logSystemPayload(payload)
+    } catch (error) {
+      console.error('❌ Failed to handle app switch:', error)
+    }
+  })
+
+  const idleCleanup = electronApi.onActivityIdle(async (payload: any) => {
+    try {
+      await logSystemPayload({ ...payload, eventType: 'idle' })
+    } catch (error) {
+      console.error('❌ Failed to handle idle event:', error)
+    }
+  })
+
+  const resumeCleanup = electronApi.onActivityDetected(async (payload: any) => {
+    try {
+      await logSystemPayload({ ...payload, eventType: 'resume' })
+    } catch (error) {
+      console.error('❌ Failed to handle resume event:', error)
+    }
+  })
+
+  const statusCleanup = electronApi.onActivityStatusChanged((payload: any) => {
+    currentSystemState = payload
+  })
+
+  const localTrackerCleanup = startLocalActivityTracker({
+    userId,
+    sessionId,
+    getSystemState: () => currentSystemState
+  })
 
   return () => {
-    if (typeof removeListener === 'function') {
-      removeListener();
-      console.log("🛑 TRACKING STOPPED CLEANLY");
-    }
-  };
-};
+    activityUpdateCleanup()
+    appSwitchCleanup()
+    idleCleanup()
+    resumeCleanup()
+    statusCleanup()
+    localTrackerCleanup()
+    console.log('🛑 Activity logger cleanup complete')
+  }
+}

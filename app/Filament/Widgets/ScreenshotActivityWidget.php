@@ -5,113 +5,92 @@ namespace App\Filament\Widgets;
 use App\Models\Screenshot;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
-use Livewire\Attributes\On;
-use Livewire\Attributes\Reactive;
+use Illuminate\Support\Facades\Log;
 
 class ScreenshotActivityWidget extends Widget
 {
     protected static string $view =
         'filament.widgets.screenshot-activity-widget';
 
-    #[Reactive]
     public ?string $startDate = null;
 
-    #[Reactive]
     public ?string $endDate = null;
 
-    #[Reactive]
+    public static bool $isLazy = false;
+
     public ?string $selectedUser = null;
 
-    #[On('filtersUpdated')]
-    public function updateFilters($filters): void
+    protected $listeners = [
+        'filtersUpdated',
+    ];
+
+    public function mount(?string $startDate = null, ?string $endDate = null, ?string $selectedUser = null): void
     {
-        $this->startDate = $filters['startDate'] ?? null;
+        $this->startDate = $startDate ?? now()->toDateString();
+        $this->endDate = $endDate ?? now()->toDateString();
+        $this->selectedUser = $selectedUser;
+    }
 
-        $this->endDate = $filters['endDate'] ?? null;
-
-        $this->selectedUser = $filters['selectedUser'] ?? null;
+    public function filtersUpdated(array $filters): void
+    {
+        $this->startDate = $filters['startDate'] ?? $this->startDate;
+        $this->endDate = $filters['endDate'] ?? $this->endDate;
+        $this->selectedUser = $filters['selectedUser'] ?? $this->selectedUser;
     }
 
     protected function getViewData(): array
     {
         $user = auth()->user();
 
+        // Parse dates
+        $filterStartDate = $this->startDate ? Carbon::parse($this->startDate)->startOfDay() : Carbon::today()->startOfDay();
+        $filterEndDate = $this->endDate ? Carbon::parse($this->endDate)->endOfDay() : Carbon::today()->endOfDay();
+
+        Log::debug('ScreenshotActivityWidget filters', [
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
+            'selectedUser' => $this->selectedUser,
+        ]);
+
         /*
         |--------------------------------------------------------------------------
-        | BASE QUERY
+        | BASE QUERY - with proper relationships
         |--------------------------------------------------------------------------
         */
-
         $query = Screenshot::query()
-            ->with([
-                'user',
-                'session',
-            ]);
+            ->with(['user', 'session'])
+            ->whereNotNull('session_id');
+
+        Log::debug('ScreenshotActivityWidget baseQuery', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | ROLE BASED ACCESS
+        | ROLE BASED ACCESS & USER FILTERING
         |--------------------------------------------------------------------------
-        |
-        | Admin => all screenshots
-        | Employee => own screenshots only
-        |
         */
-
         if ($user->canViewAll()) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | ADMIN FILTERS
-            |--------------------------------------------------------------------------
-            */
-
             if ($this->selectedUser) {
                 $query->where('user_id', $this->selectedUser);
             }
-
         } else {
-
-            /*
-            |--------------------------------------------------------------------------
-            | EMPLOYEE => ONLY OWN SCREENSHOTS
-            |--------------------------------------------------------------------------
-            */
-
             $query->where('user_id', $user->id);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | DATE RANGE FILTER
+        | DATE RANGE FILTERING
         |--------------------------------------------------------------------------
         */
-
-        $query->when(
-            $this->startDate && $this->endDate,
-            function ($query) {
-
-                $query->whereBetween('captured_at', [
-                    $this->startDate . ' 00:00:00',
-                    $this->endDate . ' 23:59:59',
-                ]);
-            }
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | VALID SESSION SCREENSHOTS ONLY
-        |--------------------------------------------------------------------------
-        */
-
-        $query->whereNotNull('session_id');
+        $query->whereBetween('captured_at', [$filterStartDate, $filterEndDate]);
 
         /*
         |--------------------------------------------------------------------------
         | RECENT SCREENSHOTS
         |--------------------------------------------------------------------------
         */
-
         $recentScreenshots = (clone $query)
             ->orderByDesc('captured_at')
             ->limit(6)
@@ -122,25 +101,13 @@ class ScreenshotActivityWidget extends Widget
         | TODAY COUNT
         |--------------------------------------------------------------------------
         */
-
-        $todayQuery = clone $query;
-
-        if (! $this->startDate || ! $this->endDate) {
-
-            $todayQuery->whereDate(
-                'captured_at',
-                Carbon::today()
-            );
-        }
-
-        $todayCount = $todayQuery->count();
+        $todayCount = (clone $query)->count();
 
         /*
         |--------------------------------------------------------------------------
         | LAST SCREENSHOT
         |--------------------------------------------------------------------------
         */
-
         $lastScreenshot = $recentScreenshots->first();
 
         return [

@@ -12,7 +12,6 @@ import { TrackingCard } from './components/TrackingCard'
 import TimesheetsPage from './pages/TimesheetsPage'
 import ActivityPage from './pages/ActivityPage'
 import ProfilePage from './pages/ProfilePage'
-import SettingsPage from './pages/SettingsPage'
 
 const ActivityIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -23,7 +22,7 @@ const ActivityIcon = () => (
 export default function App() {
   const [userSession, setUserSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activePage, setActivePage] = useState<'dashboard' | 'timesheets' | 'activity' | 'profile' | 'settings'>('dashboard')
+  const [activePage, setActivePage] = useState<'dashboard' | 'timesheets' | 'activity' | 'profile'>('dashboard')
   const { start, pause, stop, session, status, elapsedTime } = useSession()
 
   useEffect(() => {
@@ -64,8 +63,6 @@ export default function App() {
         return <ActivityPage userId={userSession.user.id} sessionId={session?.id} />
       case 'profile':
         return <ProfilePage userId={userSession.user.id} />
-      case 'settings':
-        return <SettingsPage userId={userSession.user.id} />
       default:
         return (
           <>

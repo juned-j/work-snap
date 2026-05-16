@@ -19,7 +19,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
   auth: {
-    storageKey: 'worksnap-auth-token',
+    storageKey: 'auth_token',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,

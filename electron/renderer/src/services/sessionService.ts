@@ -87,18 +87,36 @@ export const sessionService = {
       return false;
     }
 
-    const fileName = `${sessionId}/${Date.now()}.png`;
-    console.log("🔹 Generated FileName:", fileName);
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      console.warn('⚠️  Auth session not available (using Supabase anon key):', sessionError.message)
+    }
+
+    if (!session || !session.user) {
+      console.warn('⚠️  No Supabase session - proceeding with anon key for upload')
+    } else {
+      // If session exists, verify user match
+      if (session.user.id !== userId) {
+        console.error('❌ Upload failed: authenticated user mismatch', {
+          authenticatedUserId: session.user.id,
+          uploadUserId: userId
+        })
+        throw new Error('Authenticated user mismatch')
+      }
+    }
+
+    const fileName = `${sessionId}/${Date.now()}.png`
+    console.log("🔹 Generated FileName:", fileName)
 
     // 1. Storage Upload Attempt
-    console.log("🚀 Attempting Supabase Storage upload...");
+    console.log("🚀 Attempting Supabase Storage upload...")
     const { data: storageData, error: storageError } = await supabase.storage
       .from('screenshots')
       .upload(fileName, blob, {
         contentType: 'image/png',
         cacheControl: '3600',
         upsert: false
-      });
+      })
 
     if (storageError) {
       console.error("❌ STORAGE ERROR DETAILS:", {

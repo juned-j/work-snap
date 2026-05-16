@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export type DynamicNavItem = {
-  key: 'dashboard' | 'timesheets' | 'activity' | 'profile' | 'settings';
+  key: 'dashboard' | 'timesheets' | 'activity' | 'profile';
   label: string;
 };
 
@@ -11,7 +11,6 @@ export const useDynamicNav = () => {
     { key: 'timesheets', label: 'Timesheets' },
     { key: 'activity', label: 'Activity' },
     { key: 'profile', label: 'Profile' },
-    { key: 'settings', label: 'Settings' },
   ]);
 
   useEffect(() => {
