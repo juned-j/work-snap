@@ -11,24 +11,42 @@ export default function Login({ onToggle, onForgotPassword }: { onToggle: () => 
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (loading) return
+    
+    // 1. Prevent duplicate requests if already loading or missing inputs
+    if (loading || !email.trim() || !password.trim()) return
 
     setLoading(true)
 
     try {
       const result = await login(email.trim(), password.trim())
-      if (!result.success) {
-        throw new Error(result.error || 'Login failed')
+      
+      if (!result || !result.success) {
+        throw new Error(result?.error || 'Login failed')
       }
+      
       console.log('Login Success ✅')
+      
+      // 2. Clear credentials on successful login to prevent reuse issues
+      setEmail('')
+      setPassword('')
     } catch (error: any) {
-      console.error('Login Error:', error.message)
-      if (error.message.includes('Invalid login credentials')) {
+      console.error('Login Error details:', error)
+      
+      // 3. Handle specific rate-limiting or stream read messages gracefully
+      const errorMessage = error.message || ''
+      
+      if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many requests')) {
+        alert('Too many login attempts. Please wait a moment before trying again.')
+      } else if (errorMessage.includes('Invalid login credentials') || errorMessage.toLowerCase().includes('incorrect')) {
         alert('Incorrect email or password.')
+      } else if (errorMessage.includes('body stream already read')) {
+        // Safe fallback if context stream hits a snag on error formatting
+        alert('Authentication setup conflict. Please try hitting login once more.')
       } else {
-        alert(error.message || 'Unable to login. Please try again.')
+        alert(errorMessage || 'Unable to login. Please try again.')
       }
     } finally {
+      // 4. Ensure loading state is reset properly every time
       setLoading(false)
     }
   }

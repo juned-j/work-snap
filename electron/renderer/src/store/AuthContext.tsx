@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useState, useEffect, useCallback, useRef } from 'react'
 import type { AuthContextType, AuthState, AuthUser } from '../hooks/useAuthContext'
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -10,7 +10,7 @@ interface AuthProviderProps {
 /**
  * AuthProvider Component
  * Manages global authentication state with secure token handling
- * - Stores token in memory (not localStorage to prevent XSS)
+ * - Stores token in memory (and sessionStorage to persist across reloads)
  * - Validates token on mount
  * - Handles login, logout, register
  * - Provides auth state to entire app
@@ -25,6 +25,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading: true,
     error: null
   })
+
+  // API Call Locks to prevent duplicate back-to-back requests (Stops 429 triggers)
+  const isSubmittingLogin = useRef(false)
+  const isSubmittingRegister = useRef(false)
 
   // Initialize auth from session storage (not localStorage)
   useEffect(() => {
@@ -61,7 +65,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const login = useCallback(
     async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      // If a request is already in progress, silently abort to prevent duplicate 429 issues
+      if (isSubmittingLogin.current) {
+        return { success: false, error: 'Login in progress, please wait...' }
+      }
+
       try {
+        isSubmittingLogin.current = true
         setAuthState(prev => ({ ...prev, error: null }))
 
         const response = await fetch(`${API_BASE}/auth/login`, {
@@ -70,14 +80,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           body: JSON.stringify({ email, password })
         })
 
-        if (!response.ok) {
-          let data: any
+        // Read the body stream exactly ONCE right here (handles both success and error)
+        const text = await response.text()
+        let data: any = {}
+        
+        try {
+          data = JSON.parse(text)
+        } catch (e) {
+          // If it's pure HTML or plain text (like Laravel's default 429 page)
+          data = { message: text }
+        }
 
-          try {
-            data = await response.json()
-          } catch (parseError) {
-            const text = await response.text()
-            throw new Error(text || 'Login failed')
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error('429: Too many login attempts. Please wait a moment.')
           }
 
           const backendMessage = data.message || 'Login failed'
@@ -85,9 +101,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           throw new Error(validationMessage || backendMessage)
         }
 
-        const data = await response.json()
-
-        // Store token and user in session storage (not localStorage)
+        // Store token and user in session storage
         sessionStorage.setItem('auth_token', data.token)
         sessionStorage.setItem('auth_user', JSON.stringify(data.user))
 
@@ -108,6 +122,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           error: errorMsg
         }))
         return { success: false, error: errorMsg }
+      } finally {
+        // Unlock the API call after a slight delay to clear out active network loops
+        setTimeout(() => {
+          isSubmittingLogin.current = false
+        }, 1000)
       }
     },
     [API_BASE]
@@ -122,7 +141,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       email: string,
       password: string
     ): Promise<{ success: boolean; error?: string }> => {
+      if (isSubmittingRegister.current) {
+        return { success: false, error: 'Registration in progress, please wait...' }
+      }
+
       try {
+        isSubmittingRegister.current = true
         setAuthState(prev => ({ ...prev, error: null }))
 
         const response = await fetch(`${API_BASE}/auth/register`, {
@@ -131,14 +155,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           body: JSON.stringify({ name, email, password, password_confirmation: password })
         })
 
-        if (!response.ok) {
-          let data: any
+        // Read the body stream exactly ONCE right here
+        const text = await response.text()
+        let data: any = {}
 
-          try {
-            data = await response.json()
-          } catch (parseError) {
-            const text = await response.text()
-            throw new Error(text || 'Registration failed')
+        try {
+          data = JSON.parse(text)
+        } catch (e) {
+          data = { message: text }
+        }
+
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error('429: Too many requests. Please wait a moment.')
           }
 
           const backendMessage = data.message || 'Registration failed'
@@ -148,8 +177,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             data.errors?.password?.[0]
           throw new Error(validationMessage || backendMessage)
         }
-
-        const data = await response.json()
 
         // Store token and user
         sessionStorage.setItem('auth_token', data.token)
@@ -172,6 +199,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           error: errorMsg
         }))
         return { success: false, error: errorMsg }
+      } finally {
+        setTimeout(() => {
+          isSubmittingRegister.current = false
+        }, 1000)
       }
     },
     [API_BASE]
