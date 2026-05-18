@@ -71,8 +71,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         })
 
         if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.message || 'Login failed')
+          let data: any
+
+          try {
+            data = await response.json()
+          } catch (parseError) {
+            const text = await response.text()
+            throw new Error(text || 'Login failed')
+          }
+
+          const backendMessage = data.message || 'Login failed'
+          const validationMessage = data.errors?.email?.[0] || data.errors?.password?.[0]
+          throw new Error(validationMessage || backendMessage)
         }
 
         const data = await response.json()
@@ -122,8 +132,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         })
 
         if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.message || 'Registration failed')
+          let data: any
+
+          try {
+            data = await response.json()
+          } catch (parseError) {
+            const text = await response.text()
+            throw new Error(text || 'Registration failed')
+          }
+
+          const backendMessage = data.message || 'Registration failed'
+          const validationMessage =
+            data.errors?.name?.[0] ||
+            data.errors?.email?.[0] ||
+            data.errors?.password?.[0]
+          throw new Error(validationMessage || backendMessage)
         }
 
         const data = await response.json()

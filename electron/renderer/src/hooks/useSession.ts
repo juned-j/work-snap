@@ -120,8 +120,7 @@ export const useSession = () => {
   useEffect(() => {
     if (status === 'active' && session) {
       uploadScreenshot()
-      screenshotRef.current = setInterval(uploadScreenshot, 60000)
-    } else {
+screenshotRef.current = setInterval(uploadScreenshot, 300000)    } else {
       clearInterval(screenshotRef.current)
     }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from './hooks/useSession'
+import { useAuthContext } from './hooks/useAuthContext'
 import Auth from './Auth'
-import { supabase } from './api/supabase'
 import { TimerCard } from './components/TimerCard'
 import { SessionControls } from './components/SessionControls'
 import { setupActivityLogger } from './services/activityLogger'
@@ -20,49 +20,31 @@ const ActivityIcon = () => (
 );
 
 export default function App() {
-  const [userSession, setUserSession] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { authState, logout } = useAuthContext()
   const [activePage, setActivePage] = useState<'dashboard' | 'timesheets' | 'activity' | 'profile'>('dashboard')
   const { start, pause, stop, session, status, elapsedTime } = useSession()
 
-  useEffect(() => {
-    supabase.auth.getSession()
-      .then(({ data }) => {
-        setUserSession(data?.session ?? null)
-      })
-      .catch((err) => {
-        console.error('Supabase session fetch failed:', err)
-        setUserSession(null)
-      })
-      .finally(() => setLoading(false))
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setUserSession(s)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
   // 🔥 FIX: Added session?.id to dependencies to restart logger correctly
   useEffect(() => {
-    if (userSession && session?.id && status === 'active') {
-      const cleanup = setupActivityLogger(userSession, session, status)
+    if (authState.isAuthenticated && session?.id && status === 'active') {
+      const cleanup = setupActivityLogger(authState, session, status)
       return () => cleanup?.()
     }
-  }, [userSession, session?.id, status])
+  }, [authState.isAuthenticated, session?.id, status])
 
   const handleLogout = async () => {
-    if (session) await stop();
-    await supabase.auth.signOut();
+    if (session) await stop()
+    await logout()
   }
 
   const renderActivePage = () => {
     switch (activePage) {
       case 'timesheets':
-        return <TimesheetsPage userId={userSession.user.id} />
+        return <TimesheetsPage userId={authState.user?.id} />
       case 'activity':
-        return <ActivityPage userId={userSession.user.id} sessionId={session?.id} />
+        return <ActivityPage userId={authState.user?.id} sessionId={session?.id} />
       case 'profile':
-        return <ProfilePage userId={userSession.user.id} />
+        return <ProfilePage userId={authState.user?.id} />
       default:
         return (
           <>
@@ -109,7 +91,7 @@ export default function App() {
                   </div>
 
                   <div className="p-2">
-                    <SystemUsage key={session.id} sessionId={session.id} userId={userSession.user.id} />
+                    <SystemUsage key={session.id} sessionId={session.id} userId={authState.user?.id} />
                   </div>
                 </div>
               ) : (
@@ -131,17 +113,16 @@ export default function App() {
     }
   }
 
-  if (loading) return (
+  if (authState.isLoading) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center font-mono text-slate-700 animate-pulse">
       &gt; Initializing_WorkSnap_Core...
     </div>
   )
 
-  if (!userSession?.user) return <Auth />
+  if (!authState.isAuthenticated || !authState.user) return <Auth />
 
-  // Handle Dynamic User Name
-  const userEmail = userSession.user.email ?? 'User';
-  const userName = userSession.user.user_metadata?.full_name || userEmail.split('@')[0];
+  const userEmail = authState.user.email ?? 'User'
+  const userName = authState.user.name ?? userEmail.split('@')[0]
 
   return (
     <div className="h-screen bg-slate-100 text-slate-900 flex overflow-hidden">

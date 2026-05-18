@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use App\Models\Role;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,9 +34,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        
         'role_id',
         'manager_id',
-        'role',
     ];
 
     /*
@@ -55,8 +56,18 @@ class User extends Authenticatable
     */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed', // ✅ Laravel 10+ BEST PRACTICE
     ];
+
+    public function setPasswordAttribute(?string $value): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $this->attributes['password'] = Hash::needsRehash($value)
+            ? Hash::make($value)
+            : $value;
+    }
 
     /*
     |--------------------------------------------------------------------------

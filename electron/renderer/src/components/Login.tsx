@@ -1,36 +1,37 @@
-import { useState } from 'react';
-import { authService } from '../services/authService';
-import LoginForm from './LoginForm';
+import { useState } from 'react'
+import { useAuthContext } from '../hooks/useAuthContext'
+import LoginForm from './LoginForm'
 
 export default function Login({ onToggle, onForgotPassword }: { onToggle: () => void; onForgotPassword: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const { login } = useAuthContext()
+  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
- const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (loading) return;
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (loading) return
 
-    setLoading(true);
+    setLoading(true)
 
     try {
-      // ✅ Change: loginUser -> login AND pass as object
-      await authService.login({ email, password }); 
-      
-      console.log("Login Success ✅");
+      const result = await login(email.trim(), password.trim())
+      if (!result.success) {
+        throw new Error(result.error || 'Login failed')
+      }
+      console.log('Login Success ✅')
     } catch (error: any) {
-      console.error("Login Error:", error.message);
-      
-      if (error.message.includes("Invalid login credentials")) {
-        alert("Incorrect email or password.");
+      console.error('Login Error:', error.message)
+      if (error.message.includes('Invalid login credentials')) {
+        alert('Incorrect email or password.')
       } else {
-        alert(error.message);
+        alert(error.message || 'Unable to login. Please try again.')
       }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <LoginForm 

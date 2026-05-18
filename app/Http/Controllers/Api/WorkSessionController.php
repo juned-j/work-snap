@@ -48,6 +48,38 @@ class WorkSessionController extends Controller
     }
 
     /**
+     * Get latest session for authenticated user
+     */
+    public function latest(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $session = WorkSession::where('user_id', $user->id)
+                ->latest()
+                ->first();
+
+            if (!$session) {
+                return response()->json([
+                    'message' => 'No session found',
+                    'session' => null
+                ], 200);
+            }
+
+            return response()->json([
+                'message' => 'Latest session retrieved',
+                'session' => $this->formatSessionResponse($session)
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Get latest session error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to retrieve latest session',
+                'error' => 'An error occurred'
+            ], 500);
+        }
+    }
+
+    /**
      * Start a new work session
      */
     public function start(Request $request)

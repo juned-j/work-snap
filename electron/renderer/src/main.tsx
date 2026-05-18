@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { initGlobalErrorHandlers } from './utils/errorHandler'
+import AuthProvider from './store/AuthContext'
 
 // Initialize global error handlers for unhandled exceptions and promise rejections
 initGlobalErrorHandlers()
@@ -11,7 +12,9 @@ initGlobalErrorHandlers()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

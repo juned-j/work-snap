@@ -25,21 +25,29 @@ export interface ScreenshotData {
 // SESSION API CALLS (Secured)
 // ===========================
 
-export async function getCurrentSession(): Promise<SessionData> {
-  return apiClient.get('/session/current')
+export async function getCurrentSession(): Promise<SessionData | null> {
+  const response = await apiClient.get('/session/current')
+  return response.session ?? null
+}
+
+export async function getLatestSession(): Promise<SessionData | null> {
+  const response = await apiClient.get('/session/latest')
+  return response.session ?? null
 }
 
 export async function createSession(): Promise<SessionData> {
-  return apiClient.post('/session/start', {
+  const response = await apiClient.post('/session/start', {
     start_time: new Date().toISOString()
   })
+
+  return response.session
 }
 
 export async function updateSession(
   sessionId: number,
   data: Partial<SessionData>
 ): Promise<SessionData> {
-  return apiClient.put(`/session/${sessionId}`, data)
+  throw new Error('Generic session update is not supported. Use pauseSession, resumeSession, or stopSession.')
 }
 
 export async function pauseSession(sessionId: number): Promise<SessionData> {
@@ -67,12 +75,14 @@ export async function uploadScreenshot(
   imageData: string,
   idleDetected: boolean = false
 ): Promise<ScreenshotData> {
-  return apiClient.post('/screenshot', {
+  const response = await apiClient.post('/screenshot', {
     session_id: sessionId,
     image_data: imageData,
     idle_detected: idleDetected,
     captured_at: new Date().toISOString()
   })
+
+  return response.screenshot
 }
 
 export async function getScreenshots(sessionId?: number, limit = 50): Promise<any> {
@@ -80,7 +90,8 @@ export async function getScreenshots(sessionId?: number, limit = 50): Promise<an
   if (sessionId) params.append('session_id', sessionId.toString())
   params.append('limit', limit.toString())
 
-  return apiClient.get(`/screenshots?${params.toString()}`)
+  const response = await apiClient.get(`/screenshots?${params.toString()}`)
+  return response.data ?? []
 }
 
 export async function getScreenshot(screenshotId: number): Promise<ScreenshotData> {
@@ -99,12 +110,42 @@ export async function deleteScreenshot(screenshotId: number): Promise<any> {
 // ACTIVITY LOG API CALLS (Secured)
 // =============================
 
-export async function getActivityLogs(sessionId?: number, limit = 50): Promise<any> {
+export async function getActivityLogs(sessionId?: number, limit = 50): Promise<any[]> {
   const params = new URLSearchParams()
   if (sessionId) params.append('session_id', sessionId.toString())
   params.append('limit', limit.toString())
 
-  return apiClient.get(`/activities?${params.toString()}`)
+  const response = await apiClient.get(`/activities?${params.toString()}`)
+  return response.data?.data ?? []
+}
+
+export async function createActivityLog(sessionId: number, eventType: string, metadata?: Record<string, any>, description?: string): Promise<any> {
+  const response = await apiClient.post('/activities', {
+    session_id: sessionId,
+    event_type: eventType,
+    metadata: metadata || {},
+    description: description || null
+  })
+
+  return response.data
+}
+
+export async function createActivityLogsBatch(logs: Array<{
+  session_id: number
+  event_type: string
+  metadata?: Record<string, any>
+  description?: string
+}>): Promise<any[]> {
+  const response = await apiClient.post('/activities/batch', {
+    logs: logs.map(log => ({
+      session_id: log.session_id,
+      event_type: log.event_type,
+      metadata: log.metadata || {},
+      description: log.description || null
+    }))
+  })
+
+  return response.data || []
 }
 
 export async function getActivitySummary(sessionId: number): Promise<any> {

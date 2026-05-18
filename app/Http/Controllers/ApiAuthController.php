@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use App\Models\User;
 
 class ApiAuthController extends Controller
 {
@@ -24,8 +25,8 @@ class ApiAuthController extends Controller
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'role' => 'employee' // Default role
+                'password' => $validated['password'],
+                'role_id' => Role::where('name', 'employee')->value('id'),
             ]);
 
             // Generate secure API token with timestamp and IP tracking
@@ -76,7 +77,14 @@ class ApiAuthController extends Controller
             }
 
             // Revoke any existing tokens for this user (force single session)
-            $user->tokens()->delete();
+            try {
+                $user->tokens()->delete();
+            } catch (\Exception $e) {
+                \Log::warning('Failed to revoke existing Sanctum tokens during login', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             // Generate new secure token
             $token = $user->createToken(
@@ -160,8 +168,8 @@ class ApiAuthController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
-            'role' => $user->role,
-            'email_verified_at' => $user->email_verified_at
+            'role' => $user->role?->name,
+            'email_verified_at' => $user->email_verified_at,
         ];
     }
 }

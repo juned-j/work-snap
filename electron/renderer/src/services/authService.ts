@@ -1,44 +1,28 @@
 import { supabase } from '../api/supabase'
+import { login as laravelLogin, register as laravelRegister, logout as laravelLogout } from '../api/laravel'
 
 export const authService = {
 
   async registerUser(formData: any) {
-    // 1. Create Auth User in Supabase
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email.trim(),
-      password: formData.password.trim(),
-      options: {
-        data: { name: formData.name }
-      }
-    })
+    const response = await laravelRegister(
+      formData.name.trim(),
+      formData.email.trim(),
+      formData.password.trim()
+    )
 
-    if (error) throw error
-    if (!data.user) throw new Error("Registration failed: User not found")
+    sessionStorage.setItem('auth_token', response.token)
+    sessionStorage.setItem('auth_user', JSON.stringify(response.user))
 
-    await supabase.auth.signOut()
-
-    const { error: dbError } = await supabase
-      .from('users')
-      .upsert({
-        id: data.user.id,
-        name: formData.name,
-        email: formData.email.trim()
-      })
-
-    if (dbError) throw dbError
-
-    return data.user
+    return response
   },
 
- 
   async login(formData: any) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: formData.email.trim(),
-      password: formData.password.trim(),
-    })
-    
-    if (error) throw error
-    return data
+    const response = await laravelLogin(formData.email.trim(), formData.password.trim())
+
+    sessionStorage.setItem('auth_token', response.token)
+    sessionStorage.setItem('auth_user', JSON.stringify(response.user))
+
+    return response
   },
 
   async verifyEmail(email: string) {
@@ -59,15 +43,23 @@ export const authService = {
   },
 
   async logout() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      await laravelLogout()
+    } catch (error) {
+      console.warn('Laravel logout failed:', error)
+    }
+
+    sessionStorage.removeItem('auth_token')
+    sessionStorage.removeItem('auth_user')
+
     return true
   },
 
-
   async getCurrentSession() {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    if (error) throw error
-    return session
+    const token = sessionStorage.getItem('auth_token')
+    const userJson = sessionStorage.getItem('auth_user')
+    const user = userJson ? JSON.parse(userJson) : null
+
+    return { token, user }
   }
 }

@@ -29,6 +29,7 @@ Route::middleware('api.token')->group(function () {
 
     // Work Sessions
     Route::get('/session/current', [WorkSessionController::class, 'current']);
+    Route::get('/session/latest', [WorkSessionController::class, 'latest']);
     Route::post('/session/start', [WorkSessionController::class, 'start']);
     Route::post('/session/pause/{id}', [WorkSessionController::class, 'pause']);
     Route::post('/session/resume/{id}', [WorkSessionController::class, 'resume']);
@@ -42,6 +43,8 @@ Route::middleware('api.token')->group(function () {
     Route::delete('/screenshot/{screenshotId}', [ScreenshotController::class, 'delete']);
 
     // Activity Logs
+    Route::post('/activities', [ActivityLogController::class, 'store']);
+    Route::post('/activities/batch', [ActivityLogController::class, 'storeBatch']);
     Route::get('/activities', [ActivityLogController::class, 'index']);
     Route::get('/session/{sessionId}/activities/summary', [ActivityLogController::class, 'summary']);
     Route::get('/activities/admin', [ActivityLogController::class, 'listAll']); // Admin only
