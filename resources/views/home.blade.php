@@ -32,7 +32,7 @@
                        class="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                         Login
                     </a>
-                    <a href="{{ route('filament.admin.auth.register') }}"
+                    <a href="{{ route('register.gym') }}"
                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                         Register
                     </a>
@@ -56,8 +56,8 @@
 
             <div class="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
                 <div class="rounded-md shadow">
-                    <a href="{{ route('filament.admin.auth.register') }}"
-                       class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10 transition-colors">
+                  <a href="{{ route('register.gym') }}"
+                        class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
                         Get Started
                     </a>
                 </div>

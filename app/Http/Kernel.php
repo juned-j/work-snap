@@ -16,8 +16,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Auth\Middleware\Authenticate;
-use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse as QueueCookies;
-use Illuminate\Pipeline\Pipeline;
+use Illuminate\Routing\Middleware\ValidateSignature;
 
 class Kernel extends HttpKernel
 {
@@ -48,7 +47,6 @@ class Kernel extends HttpKernel
             AuthenticateSession::class,
             ShareErrorsFromSession::class,
             SubstituteBindings::class,
-            
         ],
 
         'api' => [
@@ -65,8 +63,13 @@ class Kernel extends HttpKernel
      */
     protected $routeMiddleware = [
         'auth' => Authenticate::class,
+
+        'signed' => ValidateSignature::class,
+
         'throttle' => ThrottleRequests::class,
+
         'bindings' => SubstituteBindings::class,
+
         'api.token' => \App\Http\Middleware\ValidateApiToken::class,
     ];
 }
