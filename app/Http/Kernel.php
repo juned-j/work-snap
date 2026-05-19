@@ -8,15 +8,21 @@ use Illuminate\Foundation\Http\Middleware\ValidatePostSize;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
 use Illuminate\Http\Middleware\TrustProxies;
+
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
+
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Session\Middleware\AuthenticateSession;
+
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
-use Illuminate\Session\Middleware\AuthenticateSession;
-use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Routing\Middleware\ValidateSignature;
+
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
 
 class Kernel extends HttpKernel
 {
@@ -40,6 +46,7 @@ class Kernel extends HttpKernel
      * @var array<string, array<int, class-string|string>>
      */
     protected $middlewareGroups = [
+
         'web' => [
             EncryptCookies::class,
             AddQueuedCookiesToResponse::class,
@@ -62,7 +69,10 @@ class Kernel extends HttpKernel
      * @var array<string, class-string|string>
      */
     protected $routeMiddleware = [
+
         'auth' => Authenticate::class,
+
+        'verified' => EnsureEmailIsVerified::class,
 
         'signed' => ValidateSignature::class,
 
