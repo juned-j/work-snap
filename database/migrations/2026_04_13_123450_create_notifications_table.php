@@ -9,15 +9,17 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up()
-{
-    Schema::create('notifications', function (Blueprint $table) {
-        $table->id();
-        $table->integer('employee_id');
-        $table->string('message');
-        $table->timestamps();
-    });
-}
+    public function up(): void
+    {
+       Schema::create('notifications', function (Blueprint $table) {
+    $table->uuid('id')->primary();
+    $table->string('type');
+    $table->uuidMorphs('notifiable');
+    $table->json('data');
+    $table->timestamp('read_at')->nullable();
+    $table->timestamps();
+});
+    }
 
     /**
      * Reverse the migrations.
