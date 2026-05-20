@@ -4,68 +4,110 @@ export interface ProfileRecord {
   id: string;
   name?: string;
   email?: string;
-  role?: string;
+  role_id?: string;
 }
 
-const fallbackProfile = (ownerId: string, user: any): ProfileRecord => ({
-  id: ownerId,
-  name: user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Unknown User',
-  email: user?.email || '',
-  role: user?.user_metadata?.role || 'employee',
-});
+/*
+|--------------------------------------------------------------------------
+| FETCH USER FROM USERS TABLE
+|--------------------------------------------------------------------------
+*/
+export const fetchProfile = async (
+  userId?: string
+): Promise<ProfileRecord | null> => {
 
-export const fetchProfile = async (userId?: string) => {
-  const { data: authState, error: authError } = await supabase.auth.getUser();
-  if (authError) {
-    console.error('Error fetching auth user for profile:', authError);
-  }
-
-  const currentUser = authState?.user;
-  const ownerId = userId ?? currentUser?.id;
-
-  if (!ownerId) return null;
-
-  try {
-    const { data, error } = await supabase
-      .from<ProfileRecord>('profiles')
-      .select('id, name, email, role')
-      .eq('id', ownerId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116' || error.message?.includes('No rows found')) {
-        return fallbackProfile(ownerId, currentUser);
-      }
-
-      console.error('Error fetching profile:', error);
-      return fallbackProfile(ownerId, currentUser);
-    }
-
-    return data ?? fallbackProfile(ownerId, currentUser);
-  } catch (err) {
-    console.error('Unexpected error fetching profile:', err);
-    return fallbackProfile(ownerId, currentUser);
-  }
-};
-
-export const updateProfile = async (userId: string, updates: Partial<ProfileRecord>) => {
   if (!userId) return null;
 
   try {
-    const { data, error } = await supabase
-      .from<ProfileRecord>('profiles')
-      .upsert({ id: userId, ...updates }, { onConflict: 'id' })
-      .select()
-      .single();
+
+    const { data, error } =
+      await supabase
+        .from('users')
+        .select(`
+          id,
+          name,
+          email,
+          role_id
+        `)
+        .eq('id', userId)
+        .single();
 
     if (error) {
-      console.error('Error updating profile:', error);
+
+      console.error(
+        'Fetch user error:',
+        error
+      );
+
       return null;
     }
 
+    console.log(
+      'Fetched user:',
+      data
+    );
+
     return data;
+
   } catch (err) {
-    console.error('Unexpected error updating profile:', err);
+
+    console.error(
+      'Unexpected fetch error:',
+      err
+    );
+
+    return null;
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE USER
+|--------------------------------------------------------------------------
+*/
+export const updateProfile = async (
+  userId: string,
+  updates: Partial<ProfileRecord>
+): Promise<ProfileRecord | null> => {
+
+  if (!userId) return null;
+
+  try {
+
+    const { error } =
+      await supabase
+        .from('users')
+        .update({
+          name: updates.name,
+          email: updates.email,
+          role_id: updates.role_id,
+        })
+        .eq('id', userId);
+
+    if (error) {
+
+      console.error(
+        'Update user error:',
+        error
+      );
+
+      return null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RETURN UPDATED USER
+    |--------------------------------------------------------------------------
+    */
+    return await fetchProfile(userId);
+
+  } catch (err) {
+
+    console.error(
+      'Unexpected update error:',
+      err
+    );
+
     return null;
   }
 };
