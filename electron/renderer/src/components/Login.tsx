@@ -2,57 +2,109 @@ import { useState } from 'react'
 import { useAuthContext } from '../hooks/useAuthContext'
 import LoginForm from './LoginForm'
 
-export default function Login({ onToggle, onForgotPassword }: { onToggle: () => void; onForgotPassword: () => void }) {
+export default function Login({
+  onToggle,
+  onForgotPassword,
+}: {
+  onToggle: () => void
+  onForgotPassword: () => void
+}) {
+
   const { login } = useAuthContext()
+
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
+  // Auth error state
+  const [authError, setAuthError] = useState('')
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // 1. Prevent duplicate requests if already loading or missing inputs
+
+    // Prevent duplicate requests
     if (loading || !email.trim() || !password.trim()) return
 
     setLoading(true)
 
+    // Clear old error
+    setAuthError('')
+
     try {
-      const result = await login(email.trim(), password.trim())
-      
+      const result = await login(
+        email.trim(),
+        password.trim()
+      )
+
       if (!result || !result.success) {
         throw new Error(result?.error || 'Login failed')
       }
-      
+
       console.log('Login Success ✅')
-      
-      // 2. Clear credentials on successful login to prevent reuse issues
+
+      // Clear form after success
       setEmail('')
       setPassword('')
+      setAuthError('')
+
     } catch (error: any) {
+
       console.error('Login Error details:', error)
-      
-      // 3. Handle specific rate-limiting or stream read messages gracefully
-      const errorMessage = error.message || ''
-      
-      if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many requests')) {
-        alert('Too many login attempts. Please wait a moment before trying again.')
-      } else if (errorMessage.includes('Invalid login credentials') || errorMessage.toLowerCase().includes('incorrect')) {
-        alert('Incorrect email or password.')
-      } else if (errorMessage.includes('body stream already read')) {
-        // Safe fallback if context stream hits a snag on error formatting
-        alert('Authentication setup conflict. Please try hitting login once more.')
-      } else {
-        alert(errorMessage || 'Unable to login. Please try again.')
+
+      const errorMessage = error?.message || ''
+
+      // Wrong credentials
+      if (
+        errorMessage.includes('Invalid login credentials') ||
+        errorMessage.toLowerCase().includes('incorrect')
+      ) {
+
+        setAuthError('Incorrect email or password.')
+
       }
+
+      // Too many requests
+      else if (
+        errorMessage.includes('429') ||
+        errorMessage.toLowerCase().includes('too many requests')
+      ) {
+
+        setAuthError(
+          'Too many login attempts. Please wait a moment and try again.'
+        )
+
+      }
+
+      // Stream/body issue
+      else if (
+        errorMessage.toLowerCase().includes('body stream already read')
+      ) {
+
+        setAuthError(
+          'Authentication conflict detected. Please try again.'
+        )
+
+      }
+
+      // Generic error
+      else {
+
+        setAuthError(
+          errorMessage || 'Unable to login. Please try again.'
+        )
+
+      }
+
     } finally {
-      // 4. Ensure loading state is reset properly every time
+
       setLoading(false)
+
     }
   }
 
   return (
-    <LoginForm 
+    <LoginForm
       email={email}
       setEmail={setEmail}
       password={password}
@@ -60,9 +112,10 @@ export default function Login({ onToggle, onForgotPassword }: { onToggle: () => 
       showPassword={showPassword}
       setShowPassword={setShowPassword}
       loading={loading}
+      authError={authError}
       onSubmit={handleLogin}
       onToggle={onToggle}
       onForgotPassword={onForgotPassword}
     />
-  );
+  )
 }

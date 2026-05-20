@@ -58,7 +58,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             \Illuminate\Http\Middleware\HandleCors::class,
-            'throttle:api',
+            'throttle:600,1',
             SubstituteBindings::class,
         ],
     ];

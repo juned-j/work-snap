@@ -123,11 +123,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }))
         return { success: false, error: errorMsg }
       } finally {
-        // Unlock the API call after a slight delay to clear out active network loops
-        setTimeout(() => {
-          isSubmittingLogin.current = false
-        }, 1000)
-      }
+  // Bina kisi delay ke lock ko turant clear karein
+  isSubmittingLogin.current = false
+}
     },
     [API_BASE]
   )
