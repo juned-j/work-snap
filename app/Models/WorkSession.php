@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Traits\UserDataScope;
 class WorkSession extends Model
 {
-    use HasFactory;
+    use HasFactory   , UserDataScope;
 
     protected $fillable = [
         'user_id',
