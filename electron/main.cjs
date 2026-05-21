@@ -77,19 +77,17 @@ function createWindow() {
 
   log('✅ BrowserWindow created with security hardening')
 
+  const productionIndexPath = path.join(__dirname, '../renderer/dist/index.html')
   if (!app.isPackaged || isDev) {
     mainWindow.loadURL('http://localhost:5176')
+  } else {
+    mainWindow.loadFile(productionIndexPath)
+  }
 
-    // Dev mode logs
+  if (!app.isPackaged || isDev) {
     mainWindow.webContents.openDevTools()
   } else {
-    // Production server URL
-    mainWindow.loadURL('http://13.206.204.245')
-
-    // Production logs bhi open honge
-    mainWindow.webContents.openDevTools()
-
-    log('✅ Production mode with DevTools enabled')
+    log('🔒 DevTools disabled in production')
   }
 
   mainWindow.webContents.on('did-finish-load', () => {
@@ -164,7 +162,7 @@ app.whenReady().then(() => {
 
     contents.on('will-navigate', (event, navigationUrl) => {
       const parsedUrl = new URL(navigationUrl)
-      const allowedOrigins = ['http://localhost:5176', 'http://localhost:8000', 'http://13.206.204.245']
+      const allowedOrigins = ['http://localhost:5176', 'http://localhost:8000']
       if (parsedUrl.protocol === 'file:') {
         return
       }
@@ -176,9 +174,9 @@ app.whenReady().then(() => {
 
     contents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('http:') || url.startsWith('https:')) {
-        return { action: 'allow' }
+        return { action: 'deny' }
       }
-      return { action: 'deny' }
+      return { action: 'allow' }
     })
   })
 
