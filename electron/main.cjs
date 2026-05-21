@@ -164,7 +164,7 @@ app.whenReady().then(() => {
 
     contents.on('will-navigate', (event, navigationUrl) => {
       const parsedUrl = new URL(navigationUrl)
-      const allowedOrigins = ['http://localhost:5176', 'http://localhost:8000']
+      const allowedOrigins = ['http://localhost:5176', 'http://localhost:8000', 'http://13.206.204.245']
       if (parsedUrl.protocol === 'file:') {
         return
       }
@@ -176,9 +176,9 @@ app.whenReady().then(() => {
 
     contents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('http:') || url.startsWith('https:')) {
-        return { action: 'deny' }
+        return { action: 'allow' }
       }
-      return { action: 'allow' }
+      return { action: 'deny' }
     })
   })
 
