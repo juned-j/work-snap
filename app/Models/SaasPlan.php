@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\UserDataScope;
 
 class SaasPlan extends Model
 {
-    use HasFactory;
+    use HasFactory , UserDataScope;
 
     protected $table = 'saas_plans';
 
