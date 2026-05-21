@@ -77,17 +77,19 @@ function createWindow() {
 
   log('✅ BrowserWindow created with security hardening')
 
-  const productionIndexPath = path.join(__dirname, '../renderer/dist/index.html')
   if (!app.isPackaged || isDev) {
     mainWindow.loadURL('http://localhost:5176')
-  } else {
-    mainWindow.loadFile(productionIndexPath)
-  }
 
-  if (!app.isPackaged || isDev) {
+    // Dev mode logs
     mainWindow.webContents.openDevTools()
   } else {
-    log('🔒 DevTools disabled in production')
+    // Production server URL
+    mainWindow.loadURL('http://13.206.204.245')
+
+    // Production logs bhi open honge
+    mainWindow.webContents.openDevTools()
+
+    log('✅ Production mode with DevTools enabled')
   }
 
   mainWindow.webContents.on('did-finish-load', () => {
