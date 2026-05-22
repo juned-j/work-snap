@@ -118,9 +118,14 @@ export const useSession = () => {
       return
     }
 
+    // Use the current `elapsedTime` as the base so that when resuming from a
+    // pause we continue from the paused duration instead of recalculating
+    // from `session.start_time` which would include the paused interval.
+    const baseElapsed = elapsedTime
+    const tickStart = Date.now()
+
     timerRef.current = setInterval(() => {
-      const startTime = new Date(session.start_time).getTime()
-      const run = Math.floor((Date.now() - startTime) / 1000)
+      const run = baseElapsed + Math.floor((Date.now() - tickStart) / 1000)
       setElapsedTime(run)
     }, 1000)
 
