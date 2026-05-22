@@ -1,21 +1,5 @@
 {
-  "name": "work-snap",
-  "version": "1.0.0",
-  "description": "WorkSnap Productivity and System Monitoring App",
-  "author": "YourName",
-  "private": true,
-  "type": "module",
-  "main": "electron/main.cjs",
-
-  "scripts": {
-    "dev:react": "npm run dev --prefix electron/renderer -- --port 5176",
-    "dev:electron": "wait-on http://localhost:5176 && electron .",
-    "dev": "concurrently \"npm run dev:react\" \"npm run dev:electron\"",
-
-    "build": "vite build",
-
-    "dist": "npm run build && electron-builder --win nsis --x64"
-  },
+  
 
   "devDependencies": {
     "@types/react": "^19.2.14",
