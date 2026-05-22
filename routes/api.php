@@ -6,6 +6,7 @@ use App\Http\Controllers\ApiAuthController;
 use App\Http\Controllers\Api\WorkSessionController;
 use App\Http\Controllers\Api\ScreenshotController;
 use App\Http\Controllers\Api\ActivityLogController;
+use App\Http\Controllers\Api\EmployeeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +22,7 @@ use App\Http\Controllers\Api\ActivityLogController;
 // Public authentication routes (no token required)
 Route::post('/auth/register', [ApiAuthController::class, 'register']);
 Route::post('/auth/login', [ApiAuthController::class, 'login']);
+Route::post('/employee/login', [EmployeeController::class, 'login']);
 
 // Protected routes (require valid token)
 Route::middleware('api.token')->group(function () {
