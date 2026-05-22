@@ -70,3 +70,5 @@ Route::get('/billing/success', [BillingController::class, 'success'])
     Route::get('/reset-password/{token}', function (string $token) {
     return view('auth.reset-password', ['token' => $token]);
 })->name('password.reset');
+
+

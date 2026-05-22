@@ -136,7 +136,15 @@ function createWindow() {
             timestamp: data.timestamp || new Date().toISOString()
           }
 
-          mainWindow.webContents.send('activity-update', transformedData)
+          // Send on the original channel so renderer listeners for
+          // `system-activity-update`, `system-idle-started`, etc. receive events.
+          mainWindow.webContents.send(channel, transformedData)
+
+          // Also send on the legacy `activity-update` channel for backward
+          // compatibility with code expecting that event name.
+          if (channel !== 'activity-update') {
+            mainWindow.webContents.send('activity-update', transformedData)
+          }
         } catch (err) {
           error('Failed to send event:', err.message)
         }

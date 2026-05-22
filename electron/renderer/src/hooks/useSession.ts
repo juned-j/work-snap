@@ -6,6 +6,9 @@ import { captureScreenshotAndUpload } from '../services/sessionHelpers'
 import { checkDailySessionAndArchive, initializeSessionState } from '../services/sessionTasks'
 import { startSessionAction, stopSessionAction, pauseToggleAction } from '../services/sessionActions'
 
+// 1. YAHAN IMPORT KIYA HAI: useIdleTimer hook ko import karein (path check kar lein)
+import { useIdleTimer } from './useIdleTimer' 
+
 export const useSession = () => {
   const [session, setSession] = useState<any>(null)
   const [status, setStatus] = useState<'idle' | 'active' | 'paused' | 'stopped'>('idle')
@@ -73,6 +76,42 @@ export const useSession = () => {
     }
   }
 
+  // 2. YAHAN JODA HAI: Jab user 1 minute tak koi activity na kare (Idle ho jaye)
+  const handleAutoPause = async () => {
+    const currentStatus = statusRef.current;
+    
+    if (currentStatus === 'active' && sessionRef.current) {
+      setStatus('paused');
+      manualPauseRef.current = false;
+      previousPauseReasonRef.current = 'idle';
+      
+      await sessionService.updateSession(sessionRef.current.id, { is_active: false });
+      sendNotification('WorkSnap', 'Paused due to inactivity');
+    }
+  };
+
+  // 3. YAHAN JODA HAI: Jab user wapas mouse hilaye ya keypress kare (Active ho jaye)
+  const handleAutoResume = async () => {
+    const currentStatus = statusRef.current;
+    const currentPauseReason = previousPauseReasonRef.current;
+
+    if (
+      currentStatus === 'paused' &&
+      currentPauseReason === 'idle' &&
+      !manualPauseRef.current &&
+      sessionRef.current
+    ) {
+      setStatus('active');
+      previousPauseReasonRef.current = null;
+      
+      await sessionService.updateSession(sessionRef.current.id, { is_active: true });
+      sendNotification('WorkSnap', 'Resumed');
+    }
+  };
+
+  // 4. YAHAN CALL KIYA HAI: Custom hook jo hamne banaya hai use call kiya
+  useIdleTimer(handleAutoPause, handleAutoResume);
+
   useEffect(() => {
     if (!session || status !== 'active') {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -88,39 +127,131 @@ export const useSession = () => {
     return () => clearInterval(timerRef.current)
   }, [session, status])
 
-  useEffect(() => {
-    if (!session) return
+  // Purana Electron code (Aap chahein to ise hata bhi sakte hain agar browser activity hi use karni hai)
+ useEffect(() => {
 
-    const removeStatusListener = electronActivityService.onActivityStatusChanged(async (payload: any) => {
-      const currentStatus = statusRef.current
-      const currentPauseReason = previousPauseReasonRef.current
+  // Listener sirf ek baar register hoga
+  const removeStatusListener =
+    electronActivityService.onActivityStatusChanged(
+      async (payload: any) => {
 
-      if (payload.status === 'idle' && currentStatus === 'active') {
-        setStatus('paused')
-        manualPauseRef.current = false
-        previousPauseReasonRef.current = 'idle'
-        await sessionService.updateSession(session.id, { is_active: false })
-        sendNotification('WorkSnap', 'Paused due to inactivity')
-      } else if (
-        payload.status === 'active' &&
-        currentStatus === 'paused' &&
-        currentPauseReason === 'idle' &&
-        !manualPauseRef.current
-      ) {
-        setStatus('active')
-        previousPauseReasonRef.current = null
-        await sessionService.updateSession(session.id, { is_active: true })
-        sendNotification('WorkSnap', 'Resumed')
+        try {
+
+          console.log(
+            'ACTIVITY PAYLOAD:',
+            payload
+          )
+
+          const currentStatus =
+            statusRef.current
+
+          const currentPauseReason =
+            previousPauseReasonRef.current
+
+          const currentSession =
+            sessionRef.current
+
+          // Session nahi hai to ignore
+          if (!currentSession) {
+            return
+          }
+
+          // =====================================
+          // AUTO PAUSE
+          // =====================================
+          if (
+            payload?.status === 'idle' &&
+            currentStatus === 'active'
+          ) {
+
+            console.log('🛑 AUTO PAUSE')
+
+            // duplicate pause prevent
+            if (
+              previousPauseReasonRef.current === 'idle'
+            ) {
+              return
+            }
+
+            setStatus('paused')
+
+            manualPauseRef.current = false
+
+            previousPauseReasonRef.current =
+              'idle'
+
+            // IMPORTANT:
+            // local ref immediately update
+            statusRef.current = 'paused'
+
+            await sessionService.updateSession(
+              currentSession.id,
+              {
+                is_active: false
+              }
+            )
+
+            sendNotification(
+              'WorkSnap',
+              'Paused due to inactivity'
+            )
+          }
+
+          // =====================================
+          // AUTO RESUME
+          // =====================================
+          else if (
+            payload?.status === 'active' &&
+            currentStatus === 'paused' &&
+            currentPauseReason === 'idle' &&
+            !manualPauseRef.current
+          ) {
+
+            console.log('▶️ AUTO RESUME')
+
+            setStatus('active')
+
+            previousPauseReasonRef.current =
+              null
+
+            // IMPORTANT:
+            // local ref immediately update
+            statusRef.current = 'active'
+
+            await sessionService.updateSession(
+              currentSession.id,
+              {
+                is_active: true
+              }
+            )
+
+            sendNotification(
+              'WorkSnap',
+              'Resumed'
+            )
+          }
+
+        } catch (err) {
+
+          console.error(
+            '❌ Activity listener error:',
+            err
+          )
+        }
       }
-    })
+    )
 
-    return () => removeStatusListener?.()
-  }, [session, sendNotification])
+  return () => {
+    removeStatusListener?.()
+  }
+
+}, []) // IMPORTANT: EMPTY DEPENDENCY
 
   useEffect(() => {
     if (status === 'active' && session) {
       uploadScreenshot()
-screenshotRef.current = setInterval(uploadScreenshot, 300000)    } else {
+      screenshotRef.current = setInterval(uploadScreenshot, 300000)    
+    } else {
       clearInterval(screenshotRef.current)
     }
 

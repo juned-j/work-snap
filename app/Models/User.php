@@ -16,7 +16,7 @@ use Illuminate\Notifications\DatabaseNotification;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens  ;
 
     /*
     |--------------------------------------------------------------------------

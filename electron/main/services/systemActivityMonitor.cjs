@@ -24,7 +24,7 @@ class SystemActivityMonitor {
     }
 
     console.log('✅ SystemActivityMonitor started')
-    console.log(`   • Idle threshold: ${this.IDLE_THRESHOLD_SECONDS}s`) 
+    console.log(`   • Idle threshold: ${this.IDLE_THRESHOLD_SECONDS}s`)
     console.log(`   • Check interval: ${this.CHECK_INTERVAL_MS}ms`)
 
     this.monitorInterval = setInterval(() => {
@@ -76,8 +76,8 @@ class SystemActivityMonitor {
             ? 'idle_threshold_exceeded'
             : 'activity_detected'
           : appChanged
-          ? 'app_switched'
-          : 'steady_state',
+            ? 'app_switched'
+            : 'steady_state',
         durationSeconds: this.CHECK_INTERVAL_MS / 1000
       }
 
