@@ -127,15 +127,16 @@ class User extends Authenticatable
     |--------------------------------------------------------------------------
     */
 
-    public function hasRole($roles): bool
-    {
-        if (is_string($roles)) {
-            $roles = [$roles];
-        }
+  public function hasRole($roles): bool
+{
+    $roles = (array) $roles;
 
-        return in_array($this->role?->name, $roles);
-    }
-
+    return in_array(
+        $this->role?->name ?? '',
+        $roles,
+        true
+    );
+}
     public function isSuperAdmin(): bool
     {
         return $this->hasRole('super_admin');
