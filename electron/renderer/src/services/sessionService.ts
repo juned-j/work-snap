@@ -1,160 +1,230 @@
 import { supabase } from '../api/supabase'
 
 export const sessionService = {
-  // 1. Purani active session load karna
+
+  // ACTIVE SESSION
   async getActiveSession(userId: string) {
+    console.log('📡 GET ACTIVE SESSION:', userId)
+
     const { data, error } = await supabase
       .from('work_sessions')
       .select('*')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('id', { ascending: false })
-      .limit(1);
-    
-    if (error) throw error;
-    return data?.[0] || null;
+      .limit(1)
+
+    if (error) {
+      console.error('❌ GET ACTIVE SESSION ERROR:', error)
+      throw error
+    }
+
+    console.log('✅ ACTIVE SESSION:', data?.[0])
+    return data?.[0] || null
   },
 
-  // Get latest session (active or stopped) for the user
+  // LATEST SESSION
   async getLatestSession(userId: string) {
+    console.log('📡 GET LATEST SESSION:', userId)
+
     const { data, error } = await supabase
       .from('work_sessions')
       .select('*')
       .eq('user_id', userId)
       .order('id', { ascending: false })
-      .limit(1);
+      .limit(1)
 
-    if (error) throw error;
-    return data?.[0] || null;
+    if (error) {
+      console.error('❌ GET LATEST SESSION ERROR:', error)
+      throw error
+    }
+
+    console.log('✅ LATEST SESSION:', data?.[0])
+    return data?.[0] || null
   },
 
-  // 2. Nayi session start karna
+  // CREATE SESSION
   async createSession(userId: string) {
+
+    const payload = {
+      user_id: userId,
+      start_time: new Date().toISOString(),
+      is_active: true,
+      status: 'active',
+
+      // ✅ FIX: missing fields added
+      paused_at: null,
+      ip_address: null,
+      user_agent: typeof navigator !== 'undefined'
+        ? navigator.userAgent
+        : null
+    }
+
+    console.log('🚀 CREATE SESSION PAYLOAD:', payload)
+
     const { data, error } = await supabase
       .from('work_sessions')
-      .insert({
-        user_id: userId,
-        start_time: new Date().toISOString(),
-        is_active: true,
-        status: 'active'
-      })
+      .insert(payload)
       .select('*')
-      .single();
-    
-    if (error) throw error;
-    return data;
+      .single()
+
+    if (error) {
+      console.error('❌ CREATE SESSION ERROR:', error)
+      throw error
+    }
+
+    console.log('✅ SESSION CREATED:', data)
+    return data
   },
 
-  // 3. Session update karna (Status ya General updates)
+ 
   async updateSession(sessionId: number, updates: any) {
-    const { error } = await supabase
-      .from('work_sessions')
-      .update(updates)
-      .eq('id', sessionId);
-    
-    if (error) throw error;
-  },
 
-  // 4. Session stop karna (End time save karke data return karega)
-  async stopSession(sessionId: number) {
-    const endTime = new Date().toISOString();
+    console.log('🟡 -----------------------------')
+    console.log('🟡 UPDATE SESSION START')
+    console.log('🟡 Session ID:', sessionId)
+    console.log('🟡 Incoming Updates:', updates)
+
+    const finalUpdates: any = {
+      ...updates
+    }
+
+    // 🟢 PAUSE LOGIC
+    if (updates.is_active === false && updates.status !== 'stopped') {
+      finalUpdates.status = 'paused'
+      finalUpdates.paused_at = new Date().toISOString()
+    }
+
+    // 🟢 RESUME LOGIC
+    if (updates.is_active === true) {
+      finalUpdates.status = 'active'
+      finalUpdates.paused_at = null
+    }
+
+    // 🔴 STOP LOGIC
+    if (updates.status === 'stopped') {
+      finalUpdates.status = 'stopped'
+      finalUpdates.is_active = false
+      finalUpdates.end_time = new Date().toISOString()
+    }
+
+    console.log('🟢 FINAL PAYLOAD GOING TO DB:', finalUpdates)
+
     const { data, error } = await supabase
       .from('work_sessions')
-      .update({ 
-        end_time: endTime, 
-        is_active: false, 
-        status: 'stopped' 
-      })
+      .update(finalUpdates)
       .eq('id', sessionId)
       .select('*')
-      .single();
-    
-    if (error) throw error;
-    return data; 
+      .single()
+
+    if (error) {
+      console.error('❌ UPDATE SESSION ERROR:', error)
+      throw error
+    }
+
+    console.log('✅ UPDATE SESSION SUCCESS')
+    console.log('📦 DB RESPONSE:', data)
+    console.log('🟢 -----------------------------')
+
+    return data
   },
 
-  // 5. Screenshot upload aur DB entry
-// 5. Screenshot upload aur DB entry with Heavy Logging
+  // STOP SESSION
+  async stopSession(sessionId: number) {
+
+    const payload = {
+      end_time: new Date().toISOString(),
+      is_active: false,
+      status: 'stopped',
+      paused_at: null
+    }
+
+    console.log('🛑 STOP SESSION PAYLOAD:', payload)
+
+    const { data, error } = await supabase
+      .from('work_sessions')
+      .update(payload)
+      .eq('id', sessionId)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('❌ STOP SESSION ERROR:', error)
+      throw error
+    }
+
+    console.log('✅ SESSION STOPPED:', data)
+    return data
+  },
+
+  // SCREENSHOT UPLOAD
   async uploadScreenshot(sessionId: number, userId: string, blob: Blob) {
-    console.log("📸 --- SCREENSHOT UPLOAD START ---");
-    console.log("🔹 Session ID:", sessionId);
-    console.log("🔹 User ID:", userId);
-    console.log("🔹 Blob Info:", { size: blob.size, type: blob.type });
 
-    // Validation: Agar blob khali hai toh aage mat badho
+    console.log('📸 --- SCREENSHOT UPLOAD START ---')
+    console.log('🔹 Session ID:', sessionId)
+    console.log('🔹 User ID:', userId)
+    console.log('🔹 Blob Info:', { size: blob.size, type: blob.type })
+
     if (blob.size === 0) {
-      console.error("❌ ERROR: Blob size is 0. Screenshot capture failed.");
-      return false;
+      console.error('❌ Blob size is 0')
+      return false
     }
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    const { data: { session }, error: sessionError } =
+      await supabase.auth.getSession()
+
     if (sessionError) {
-      console.warn('⚠️  Auth session not available (using Supabase anon key):', sessionError.message)
-    }
-
-    if (!session || !session.user) {
-      console.warn('⚠️  No Supabase session - proceeding with anon key for upload')
-    } else {
-      // If session exists, verify user match
-      if (session.user.id !== userId) {
-        console.error('❌ Upload failed: authenticated user mismatch', {
-          authenticatedUserId: session.user.id,
-          uploadUserId: userId
-        })
-        throw new Error('Authenticated user mismatch')
-      }
+      console.warn('⚠️ Auth warning:', sessionError.message)
     }
 
     const fileName = `${sessionId}/${Date.now()}.png`
-    console.log("🔹 Generated FileName:", fileName)
 
-    // 1. Storage Upload Attempt
-    console.log("🚀 Attempting Supabase Storage upload...")
-    const { data: storageData, error: storageError } = await supabase.storage
-      .from('screenshots')
-      .upload(fileName, blob, {
-        contentType: 'image/png',
-        cacheControl: '3600',
-        upsert: false
-      })
+    console.log('🔹 FileName:', fileName)
+
+    // STORAGE
+    console.log('🚀 Uploading to storage...')
+
+    const { data: storageData, error: storageError } =
+      await supabase.storage
+        .from('screenshots')
+        .upload(fileName, blob, {
+          contentType: 'image/png',
+          cacheControl: '3600',
+          upsert: false
+        })
 
     if (storageError) {
-      console.error("❌ STORAGE ERROR DETAILS:", {
-        message: storageError.message,
-        name: storageError.name,
-        status: (storageError as any).status // Error code like 403, 404, etc.
-      });
-      throw storageError;
+      console.error('❌ STORAGE ERROR:', storageError)
+      throw storageError
     }
 
-    console.log("✅ STORAGE SUCCESS:", storageData);
+    console.log('✅ STORAGE SUCCESS:', storageData)
 
-    // 2. Get Public URL
-    const { data: urlData } = supabase.storage
-      .from('screenshots')
-      .getPublicUrl(fileName);
+    // PUBLIC URL
+    const { data: urlData } =
+      supabase.storage.from('screenshots').getPublicUrl(fileName)
 
-    console.log("🔗 Public URL Generated:", urlData.publicUrl);
+    console.log('🔗 PUBLIC URL:', urlData.publicUrl)
 
-    // 3. Database Entry Attempt
-    console.log("🚀 Attempting Database entry...");
-    const { data: dbData, error: dbError } = await supabase
-      .from('screenshots')
-      .insert({
+    // DB INSERT
+    console.log('🚀 DB INSERT START...')
+
+    const { data: dbData, error: dbError } =
+      await supabase.from('screenshots').insert({
         session_id: sessionId,
         user_id: userId,
         image_url: urlData.publicUrl,
         captured_at: new Date().toISOString()
-      })
-      .select();
+      }).select('*')
 
     if (dbError) {
-      console.error("❌ DATABASE ERROR DETAILS:", dbError.message);
-      throw dbError;
+      console.error('❌ SCREENSHOT DB ERROR:', dbError)
+      throw dbError
     }
 
-    console.log("✅ DATABASE SUCCESS:", dbData);
-    console.log("🎉 --- SCREENSHOT SYNC COMPLETE ---");
-    return true;
+    console.log('✅ SCREENSHOT DB SUCCESS:', dbData)
+    console.log('🎉 --- SCREENSHOT COMPLETE ---')
+
+    return true
   }
-};
+}
