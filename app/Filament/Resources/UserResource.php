@@ -125,29 +125,34 @@ class UserResource extends Resource
             ]);
     }
 
-    public static function getEloquentQuery(): Builder
-    {
-        $user = auth()->user();
+    // public static function getEloquentQuery(): Builder
+    // {
+    //     $user = auth()->user();
 
-        $query = parent::getEloquentQuery();
+    //     $query = parent::getEloquentQuery();
 
-        // Super Admin & Admin
-        if ($user->isAdmin()) {
-            return $query;
-        }
+    //     // Super Admin & Admin
+    //     if ($user->isAdmin()) {
+    //         return $query;
+    //     }
 
-        // Manager
-        if ($user->isManager()) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('id', $user->id)
-                    ->orWhere('manager_id', $user->id);
-            });
-        }
+    //     // Manager
+    //     if ($user->isManager()) {
+    //         return $query->where(function ($q) use ($user) {
+    //             $q->where('id', $user->id)
+    //                 ->orWhere('manager_id', $user->id);
+    //         });
+    //     }
 
-        // Employee/User
-        return $query->where('id', $user->id);
-    }
+    //     // Employee/User
+    //     return $query->where('id', $user->id);
+    // }
 
+
+    public function isAdmin(): bool
+{
+    return $this->hasRole(['admin', 'super_admin']);
+}
     public static function getPages(): array
     {
         return [
