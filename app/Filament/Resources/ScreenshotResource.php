@@ -108,17 +108,5 @@ class ScreenshotResource extends Resource
             'edit'   => Pages\EditScreenshot::route('/{record}/edit'),
         ];
     }
-     public static function canViewAny(): bool
-{
-    $user = auth()->user();
-
-    if (! $user) {
-        return false;
-    }
-
-    return $user->hasRole([
-        'super_admin',
-        'admin',
-    ]);
-}
+    
 }
