@@ -126,17 +126,17 @@ class WorkSessionResource extends Resource
         ];
     }
 
-     public static function canViewAny(): bool
-{
-    $user = auth()->user();
+//      public static function canViewAny(): bool
+// {
+//     $user = auth()->user();
 
-    if (! $user) {
-        return false;
-    }
+//     if (! $user) {
+//         return false;
+//     }
 
-    return $user->hasRole([
-        'super_admin',
-        'admin',
-    ]);
-}
+//     return $user->hasRole([
+//         'super_admin',
+//         'admin',
+//     ]);
+// }
 }
