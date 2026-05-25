@@ -54,18 +54,5 @@ protected static ?string $title = '';
         $this->dispatchFilterUpdate();
     }
 
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        // hasRole check
-        return $user->hasRole([
-            'super_admin',
-            'admin',
-        ]);
-    }
+ 
 }
