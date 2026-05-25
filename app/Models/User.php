@@ -16,7 +16,7 @@ use Illuminate\Notifications\DatabaseNotification;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens  ;
+    use HasFactory, Notifiable, HasApiTokens;
 
     /*
     |--------------------------------------------------------------------------
@@ -24,6 +24,7 @@ class User extends Authenticatable
     |--------------------------------------------------------------------------
     */
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     /*
@@ -36,7 +37,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        
         'role_id',
         'manager_id',
     ];
@@ -79,7 +79,9 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::creating(function ($user) {
+
             if (empty($user->id)) {
+
                 $user->id = (string) Str::uuid();
             }
         });
@@ -108,17 +110,26 @@ class User extends Authenticatable
 
     public function workSessions(): HasMany
     {
-        return $this->hasMany(\App\Models\WorkSession::class, 'user_id');
+        return $this->hasMany(
+            \App\Models\WorkSession::class,
+            'user_id'
+        );
     }
 
     public function screenshots(): HasMany
     {
-        return $this->hasMany(\App\Models\Screenshot::class, 'user_id');
+        return $this->hasMany(
+            \App\Models\Screenshot::class,
+            'user_id'
+        );
     }
 
     public function notifications(): MorphMany
     {
-        return $this->morphMany(DatabaseNotification::class, 'notifiable')->orderBy('created_at', 'desc');
+        return $this->morphMany(
+            DatabaseNotification::class,
+            'notifiable'
+        )->orderBy('created_at', 'desc');
     }
 
     /*
@@ -127,16 +138,17 @@ class User extends Authenticatable
     |--------------------------------------------------------------------------
     */
 
-  public function hasRole($roles): bool
-{
-    $roles = (array) $roles;
+    public function hasRole($roles): bool
+    {
+        $roles = (array) $roles;
 
-    return in_array(
-        $this->role?->name ?? '',
-        $roles,
-        true
-    );
-}
+        return in_array(
+            $this->role?->name ?? '',
+            $roles,
+            true
+        );
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->hasRole('super_admin');
@@ -144,7 +156,10 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->hasRole(['admin', 'super_admin']);
+        return $this->hasRole([
+            'admin',
+            'super_admin',
+        ]);
     }
 
     public function isManager(): bool
@@ -165,15 +180,50 @@ class User extends Authenticatable
 
     public function getTeamUserIds(): array
     {
-        return $this->managedUsers()->pluck('id')->toArray();
+        return $this->managedUsers()
+            ->pluck('id')
+            ->toArray();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | ACCESS HELPERS
+    |--------------------------------------------------------------------------
+    */
+
+    // ✅ admin & super admin can view all users
     public function canViewAll(): bool
     {
-        
-    return $this->isAdmin();
+        return $this->hasRole([
+            'admin',
+            'super_admin',
+        ]);
     }
 
+    // ✅ permission checker
+    public function canViewUser(User $targetUser): bool
+    {
+        // admin & super admin
+        if ($this->hasRole([
+            'admin',
+            'super_admin',
+        ])) {
 
-    
+            return true;
+        }
+
+        // manager can only view employees
+        if ($this->isManager()) {
+
+            return $targetUser->isEmployee();
+        }
+
+        // employee can only view self
+        if ($this->isEmployee()) {
+
+            return $this->id === $targetUser->id;
+        }
+
+        return false;
+    }
 }
