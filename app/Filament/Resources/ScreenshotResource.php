@@ -30,6 +30,7 @@ class ScreenshotResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+        ->recordUrl(null)
   ->searchable(false)
            
             ->modifyQueryUsing(fn ($query) =>
