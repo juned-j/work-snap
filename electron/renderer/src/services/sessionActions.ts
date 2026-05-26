@@ -46,21 +46,40 @@ export async function stopSessionAction(setters: {
   }
 }
 
-export async function pauseToggleAction(currentSession: any, statusRef: any, previousPauseRef: any, manualPauseRef: any, sendNotification: (t: string, b: string) => void): Promise<{ status: 'paused' | 'active' | null }> {
+// ✅ FIX: Return type me '; session?: any' add kiya taaki useSession.ts me error na aaye
+export async function pauseToggleAction(
+  currentSession: any, 
+  statusRef: any, 
+  previousPauseRef: any, 
+  manualPauseRef: any, 
+  sendNotification: (t: string, b: string) => void
+): Promise<{ status: 'paused' | 'active' | null; session?: any }> {
+  
   if (!currentSession) return { status: null }
 
   if (statusRef.current === 'active') {
     manualPauseRef.current = true
     previousPauseRef.current = 'manual'
-    await sessionService.updateSession(currentSession.id, { is_active: false })
+    
+    // ✅ FIX: DB se aaya hua updated session (jisme paused_at aur totals save hue hain) catch kiya
+    const updatedSession = await sessionService.updateSession(currentSession.id, { is_active: false })
+    
     sendNotification('WorkSnap', 'Paused')
-    return { status: 'paused' }
+    
+    // ✅ FIX: Status ke sath updated session data bhi bhej diya
+    return { status: 'paused', session: updatedSession }
+
   } else if (statusRef.current === 'paused') {
     manualPauseRef.current = false
     previousPauseRef.current = null
-    await sessionService.updateSession(currentSession.id, { is_active: true })
+    
+    // ✅ FIX: DB se aaya hua updated session (jisme total_paused_seconds add ho chuka hai) catch kiya
+    const updatedSession = await sessionService.updateSession(currentSession.id, { is_active: true })
+    
     sendNotification('WorkSnap', 'Resumed')
-    return { status: 'active' }
+    
+    // ✅ FIX: Status ke sath updated session data bhi bhej diya
+    return { status: 'active', session: updatedSession }
   }
 
   return { status: null }
