@@ -78,8 +78,7 @@ export const sessionService = {
   },
 
  
-  async updateSession(sessionId: number, updates: any) {
-
+async updateSession(sessionId: number, updates: any) {
     console.log('🟡 -----------------------------')
     console.log('🟡 UPDATE SESSION START')
     console.log('🟡 Session ID:', sessionId)
@@ -95,10 +94,35 @@ export const sessionService = {
       finalUpdates.paused_at = new Date().toISOString()
     }
 
-    // 🟢 RESUME LOGIC
+    // 🟢 RESUME LOGIC (Yahan major fix hai)
     if (updates.is_active === true) {
       finalUpdates.status = 'active'
-      finalUpdates.paused_at = null
+      finalUpdates.paused_at = null // Clear pause time on resume
+
+      try {
+        // 1. Pehle DB se current session fetch karo taaki purani paused_at value mil sake
+        const { data: currentSession } = await supabase
+          .from('work_sessions')
+          .select('paused_at, total_paused_seconds')
+          .eq('id', sessionId)
+          .single();
+
+        if (currentSession && currentSession.paused_at) {
+          const pausedAtTime = new Date(currentSession.paused_at).getTime();
+          const nowTime = new Date().getTime();
+          
+          // Is pause session me kitne seconds waste hue
+          const currentPauseDurationSeconds = Math.floor((nowTime - pausedAtTime) / 1000);
+          
+          // Purane total seconds me naye paused seconds jod do
+          const existingPausedSeconds = currentSession.total_paused_seconds || 0;
+          finalUpdates.total_paused_seconds = existingPausedSeconds + currentPauseDurationSeconds;
+          
+          console.log(`⏱️ Adding ${currentPauseDurationSeconds}s to total paused time. New Total: ${finalUpdates.total_paused_seconds}s`);
+        }
+      } catch (err) {
+        console.error('❌ Error calculating pause duration:', err);
+      }
     }
 
     // 🔴 STOP LOGIC
@@ -106,6 +130,25 @@ export const sessionService = {
       finalUpdates.status = 'stopped'
       finalUpdates.is_active = false
       finalUpdates.end_time = new Date().toISOString()
+      
+      // Agar direct paused state se stop kiya hai, toh bacha hua pause time bhi calculate karein
+      try {
+        const { data: currentSession } = await supabase
+          .from('work_sessions')
+          .select('paused_at, total_paused_seconds')
+          .eq('id', sessionId)
+          .single();
+
+        if (currentSession && currentSession.paused_at) {
+          const pausedAtTime = new Date(currentSession.paused_at).getTime();
+          const nowTime = new Date().getTime();
+          const currentPauseDurationSeconds = Math.floor((nowTime - pausedAtTime) / 1000);
+          finalUpdates.total_paused_seconds = (currentSession.total_paused_seconds || 0) + currentPauseDurationSeconds;
+          finalUpdates.paused_at = null;
+        }
+      } catch (err) {
+        console.error('❌ Error during stop-pause calculation:', err);
+      }
     }
 
     console.log('🟢 FINAL PAYLOAD GOING TO DB:', finalUpdates)
