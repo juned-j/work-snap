@@ -72,7 +72,38 @@ export const useSession = () => {
 
   useEffect(() => {
     elapsedTimeRef.current = elapsedTime
+    
+    // 🔥 FIX 1: Jab bhi timer chal raha ho, sessionStorage ko background mein safe rakho (Har 2 seconds ke intervals par write buffer auto-handle hoga)
+    if (sessionRef.current?.id && statusRef.current === 'active' && elapsedTime > 0) {
+      const cacheKey = `worksnap_elapsed_${sessionRef.current.id}`;
+      sessionStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          elapsedSeconds: elapsedTime,
+          savedAt: Date.now()
+        })
+      );
+    }
   }, [elapsedTime])
+
+  // 🔥 FIX 2: Emergency Window Unload Handler (Agar user jhatke se reload mare ya tab close kare)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionRef.current?.id && statusRef.current === 'active') {
+        const cacheKey = `worksnap_elapsed_${sessionRef.current.id}`;
+        sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            elapsedSeconds: elapsedTimeRef.current,
+            savedAt: Date.now()
+          })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   useEffect(() => {
     requestPermission()
@@ -93,7 +124,7 @@ export const useSession = () => {
     return () => clearInterval(interval)
   }, [])
 
- const initializeSession = async () => {
+  const initializeSession = async () => {
     console.log('🔍 [INIT SESSION] Fetching dynamic computed data from backend...')
 
     const data = await initializeSessionState({
@@ -115,8 +146,6 @@ export const useSession = () => {
       return
     }
 
-    // ✅ NO UI CALCULATION: Direct backend ki dynamic value ko ref me daala
-    // `duration_seconds` direct aapke Laravel/Supabase se calculated aa raha hai
     const dynamicSeconds = data.session.duration_seconds ?? data.elapsedTime ?? 0
     
     console.log('🎯 [INIT SESSION] Dynamic Seconds from Backend:', dynamicSeconds)
@@ -124,7 +153,6 @@ export const useSession = () => {
     savedElapsedRef.current = dynamicSeconds
     elapsedTimeRef.current = dynamicSeconds
 
-    // State aur UI sync karein
     setStatus(dbStatus as SessionStatus)
     statusRef.current = dbStatus as SessionStatus
     setElapsedTime(dynamicSeconds)
@@ -167,6 +195,10 @@ export const useSession = () => {
   const stop = async () => {
     if (!session) return
     try {
+      // 🔥 CLEANUP CACHE ON STOP: Session khatam toh cache clear karo
+      const cacheKey = `worksnap_elapsed_${session.id}`;
+      sessionStorage.removeItem(cacheKey);
+
       await stopSessionAction(
         {
           setSession,
@@ -235,7 +267,6 @@ export const useSession = () => {
 
               syncSessionState('paused')
 
-              // ✅ FIX: Update local state with the returned DB values
               const updatedDbSession = await sessionService.updateSession(currentSession.id, {
                 is_active: false,
                 status: 'paused',
@@ -259,7 +290,6 @@ export const useSession = () => {
 
               savedElapsedRef.current = elapsedTimeRef.current
 
-              // ✅ FIX: Update local state with the returned DB values (containing new calculated paused seconds)
               const updatedDbSession = await sessionService.updateSession(currentSession.id, {
                 is_active: true,
                 status: 'active',
@@ -316,8 +346,6 @@ export const useSession = () => {
 
     if (res?.status) {
       syncSessionState(res.status as SessionStatus)
-      // ✅ NOTE: Agar aapka `pauseToggleAction` andar se API hit karta hai, 
-      // toh wahan se returned full session object ko `setSession()` me dalna zaroori hai.
       if (res?.session) {
         setSession(res.session)
       }
