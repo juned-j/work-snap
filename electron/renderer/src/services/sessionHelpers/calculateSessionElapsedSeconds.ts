@@ -1,33 +1,42 @@
-export function calculateSessionElapsedSeconds(
-  startTime: string,
-  endTime?: string,
-  status?: string,
-  pausedAt?: string,
-  totalPausedSeconds: number = 0,
-
-  // ✅ VALIDATION
-  currentUserId?: string,
-  sessionUserId?: string,
-  currentSessionId?: number | string,
+interface CalculateSessionParams {
+  startTime: string
+  endTime?: string
+  status?: string
+  pausedAt?: string
+  totalPausedSeconds?: number
+  currentUserId?: string
+  sessionUserId?: string
+  currentSessionId?: number | string
   sessionId?: number | string
-): number {
+}
+
+export function calculateSessionElapsedSeconds({
+
+  startTime,
+  endTime,
+  status,
+  pausedAt,
+  totalPausedSeconds = 0,
+  currentUserId,
+  sessionUserId,
+  currentSessionId,
+  sessionId
+
+}: CalculateSessionParams): number {
 
   console.log('🟡 ====================================')
-  console.log('🟡 CALCULATE SESSION START')
+  console.log('🟡 [CALCULATE] FUNCTION ENGINE START')
 
-  console.log('🟡 startTime:', startTime)
-  console.log('🟡 endTime:', endTime)
-  console.log('🟡 status:', status)
-  console.log('🟡 pausedAt:', pausedAt)
-  console.log('🟡 totalPausedSeconds:', totalPausedSeconds)
+  console.log('🔹 startTime:', startTime)
+  console.log('🔹 endTime:', endTime)
+  console.log('🔹 status:', status)
+  console.log('🔹 pausedAt:', pausedAt)
+  console.log('🔹 totalPausedSeconds:', totalPausedSeconds)
 
-  console.log('🟣 currentUserId:', currentUserId)
-  console.log('🟣 sessionUserId:', sessionUserId)
-
-  console.log('🟣 currentSessionId:', currentSessionId)
-  console.log('🟣 sessionId:', sessionId)
-
+  // =========================================================
   // ✅ USER VALIDATION
+  // =========================================================
+
   if (
     currentUserId &&
     sessionUserId &&
@@ -35,12 +44,14 @@ export function calculateSessionElapsedSeconds(
   ) {
 
     console.log('❌ USER ID MISMATCH')
-    console.log('❌ TIMER BLOCKED')
 
     return 0
   }
 
+  // =========================================================
   // ✅ SESSION VALIDATION
+  // =========================================================
+
   if (
     currentSessionId &&
     sessionId &&
@@ -48,22 +59,18 @@ export function calculateSessionElapsedSeconds(
   ) {
 
     console.log('❌ SESSION ID MISMATCH')
-    console.log('❌ TIMER BLOCKED')
 
     return 0
   }
 
-  // ✅ START TIME
-  const startDate = new Date(startTime)
+  // =========================================================
+  // ✅ START DATE
+  // =========================================================
 
-  console.log('🟢 startDate:', startDate)
-  console.log('🟢 startDate ISO:', startDate.toISOString())
+  const startDate = new Date(startTime)
 
   const startMs = startDate.getTime()
 
-  console.log('🟢 startMs:', startMs)
-
-  // ❌ INVALID START
   if (isNaN(startMs)) {
 
     console.log('❌ INVALID START TIME')
@@ -71,35 +78,49 @@ export function calculateSessionElapsedSeconds(
     return 0
   }
 
-  let finalEndTime: string | undefined
+  // =========================================================
+  // ✅ ACTIVE SESSION SAFETY FIX
+  // =========================================================
 
-  // ✅ PAUSED SESSION
-  if (
-    status === 'paused' &&
-    pausedAt
-  ) {
+  if (status === 'active') {
 
-    console.log('⏸️ PAUSED SESSION DETECTED')
+    // active session me stale values ignore
 
-    finalEndTime = pausedAt
+    pausedAt = undefined
+    endTime = undefined
+  }
 
-  } else if (endTime) {
+  // =========================================================
+  // ✅ DETERMINE FINAL END TIME
+  // =========================================================
 
-    console.log('🛑 USING endTime')
+  let finalEndTime: string
 
-    finalEndTime = endTime
+  const isPaused = status === 'paused'
+
+  if (isPaused) {
+
+    console.log('⏸️ PAUSED SESSION')
+
+    finalEndTime =
+      pausedAt ||
+      endTime ||
+      new Date().toISOString()
 
   } else {
 
-    console.log('▶️ ACTIVE SESSION USING CURRENT TIME')
+    console.log('▶️ ACTIVE SESSION')
 
+    // ✅ ALWAYS LIVE TIME
     finalEndTime = new Date().toISOString()
   }
 
-  console.log('🛡️ finalEndTime RAW:', finalEndTime)
+  console.log('🛡️ finalEndTime:', finalEndTime)
 
-  // ✅ IMPORTANT FIX
-  // DB time without timezone issue fix
+  // =========================================================
+  // ✅ TIME NORMALIZATION
+  // =========================================================
+
   let normalizedEndTime = finalEndTime
 
   if (
@@ -108,27 +129,15 @@ export function calculateSessionElapsedSeconds(
     !normalizedEndTime.includes('+')
   ) {
 
-    normalizedEndTime =
-      normalizedEndTime + 'Z'
+    normalizedEndTime += 'Z'
 
-    console.log(
-      '🛠️ Added UTC timezone to endTime:',
-      normalizedEndTime
-    )
+    console.log('🛠️ UTC FIX APPLIED:', normalizedEndTime)
   }
 
-  const endDate = new Date(
-    normalizedEndTime as string
-  )
+  const endDate = new Date(normalizedEndTime)
 
-  console.log('🟢 endDate:', endDate)
-  console.log('🟢 endDate ISO:', endDate.toISOString())
+  let endMs = endDate.getTime()
 
-  const endMs = endDate.getTime()
-
-  console.log('🟢 endMs:', endMs)
-
-  // ❌ INVALID END
   if (isNaN(endMs)) {
 
     console.log('❌ INVALID END TIME')
@@ -136,105 +145,86 @@ export function calculateSessionElapsedSeconds(
     return 0
   }
 
-  // ✅ MAIN FIX
-  // timezone issue detection
+  // =========================================================
+  // ✅ BACKWARD TIMELINE FIX
+  // =========================================================
+
   if (endMs < startMs) {
 
-    console.log('❌ END TIME SMALLER THAN START TIME')
-    console.log('❌ startMs:', startMs)
-    console.log('❌ endMs:', endMs)
+    console.log('⚠️ BACKWARD TIMELINE DETECTED')
 
-    console.log(
-      '🛠️ POSSIBLE TIMEZONE ISSUE DETECTED'
+    const fixedDate = new Date(
+      normalizedEndTime.replace('Z', '')
     )
 
-    // TRY LOCAL TIME FIX
-    const fixedEndDate =
-      new Date(
-        normalizedEndTime!.replace('Z', '')
-      )
+    const fixedMs = fixedDate.getTime()
 
-    const fixedEndMs =
-      fixedEndDate.getTime()
+    if (fixedMs > startMs) {
 
-    console.log('🛠️ fixedEndDate:', fixedEndDate)
-    console.log('🛠️ fixedEndMs:', fixedEndMs)
+      console.log('✅ LOCAL TIME FIX SUCCESS')
 
-    if (fixedEndMs > startMs) {
+      endMs = fixedMs
 
-      console.log(
-        '✅ LOCAL TIME FIX SUCCESS'
-      )
+    } else {
 
-      let fixedSeconds =
-        Math.floor(
-          (fixedEndMs - startMs) / 1000
-        )
+      console.log('❌ INVALID TIMELINE')
 
-      console.log(
-        '🟢 FIXED RAW SECONDS:',
-        fixedSeconds
-      )
-
-      fixedSeconds -= Number(
-        totalPausedSeconds || 0
-      )
-
-      console.log(
-        '🟢 FIXED AFTER PAUSED SUBTRACT:',
-        fixedSeconds
-      )
-
-      fixedSeconds =
-        Math.max(0, fixedSeconds)
-
-      console.log(
-        '✅ FINAL FIXED TOTAL SECONDS:',
-        fixedSeconds
-      )
-
-      console.log('🟡 ====================================')
-
-      return fixedSeconds
+      return 0
     }
-
-    console.log(
-      '❌ LOCAL TIME FIX FAILED'
-    )
-
-    return 0
   }
 
-  // ✅ NORMAL FLOW
-  let totalSeconds =
-    Math.floor(
-      (endMs - startMs) / 1000
-    )
+  // =========================================================
+  // ✅ RAW DURATION
+  // =========================================================
 
-  console.log(
-    '🟢 RAW TOTAL SECONDS:',
-    totalSeconds
+  const totalRawSeconds = Math.floor(
+    (endMs - startMs) / 1000
   )
 
-  // ✅ REMOVE PAUSED TIME
-  totalSeconds -= Number(
+  console.log('📊 totalRawSeconds:', totalRawSeconds)
+
+  // =========================================================
+  // ✅ SAFE PAUSED SECONDS
+  // =========================================================
+
+  let safePausedSeconds = Number(
     totalPausedSeconds || 0
   )
 
-  console.log(
-    '🟢 AFTER PAUSED SUBTRACT:',
-    totalSeconds
-  )
+  if (safePausedSeconds < 0) {
 
-  totalSeconds =
-    Math.max(0, totalSeconds)
+    console.log('⚠️ NEGATIVE PAUSED SECONDS FIXED')
 
-  console.log(
-    '✅ FINAL TOTAL SECONDS:',
-    totalSeconds
-  )
+    safePausedSeconds = 0
+  }
+
+  // ✅ CORRUPT DB FIX
+
+  if (safePausedSeconds > totalRawSeconds) {
+
+    console.log('🚨 CORRUPT PAUSED DATA DETECTED')
+
+    console.log(
+      `Paused: ${safePausedSeconds} > Raw: ${totalRawSeconds}`
+    )
+
+    safePausedSeconds = 0
+  }
+
+  console.log('🧮 safePausedSeconds:', safePausedSeconds)
+
+  // =========================================================
+  // ✅ FINAL TIME
+  // =========================================================
+
+  let finalSeconds =
+    totalRawSeconds - safePausedSeconds
+
+  finalSeconds = Math.max(0, finalSeconds)
+
+  console.log('🚀 FINAL SECONDS:', finalSeconds)
 
   console.log('🟡 ====================================')
 
-  return totalSeconds
+  return finalSeconds
 }
