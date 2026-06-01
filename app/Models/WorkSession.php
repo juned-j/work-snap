@@ -49,13 +49,25 @@ class WorkSession extends Model
             return 0;
         }
 
-        $end = $this->end_time ?? now();
+        // Determine the correct end boundary for the session.
+        // Paused sessions should freeze at paused_at, stopped sessions at end_time,
+        // and active sessions should continue from now.
+        if ($this->end_time) {
+            $end = $this->end_time;
+        } elseif ($this->status === 'paused' || ! $this->is_active) {
+            $end = $this->paused_at ?? $this->start_time;
+        } else {
+            $end = now();
+        }
 
         if ($end->lessThan($this->start_time)) {
             return 0;
         }
 
-        return round($this->start_time->diffInSeconds($end) / 3600, 2);
+        $pausedSeconds = (int) ($this->total_paused_seconds ?? 0);
+        $durationSeconds = max(0, $this->start_time->diffInSeconds($end) - $pausedSeconds);
+
+        return round($durationSeconds / 3600, 2);
     }
 
     public function getDurationTextAttribute(): string
