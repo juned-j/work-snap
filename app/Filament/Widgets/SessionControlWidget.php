@@ -36,39 +36,67 @@ class SessionControlWidget extends Widget
         $this->selectedUser = $filters['selectedUser'] ?? $this->selectedUser;
     }
 
-    protected function getViewData(): array
-    {
-        // Parse dates
-        $filterStartDate = $this->startDate ? Carbon::parse($this->startDate)->startOfDay() : Carbon::today()->startOfDay();
-        $filterEndDate = $this->endDate ? Carbon::parse($this->endDate)->endOfDay() : Carbon::today()->endOfDay();
+   protected function getViewData(): array
+{
+    $user = auth()->user();
 
-        Log::debug('SessionControlWidget filters', [
-            'startDate' => $this->startDate,
-            'endDate' => $this->endDate,
-            'selectedUser' => $this->selectedUser,
+    // Parse dates
+    $filterStartDate = $this->startDate
+        ? Carbon::parse($this->startDate)->startOfDay()
+        : Carbon::today()->startOfDay();
+
+    $filterEndDate = $this->endDate
+        ? Carbon::parse($this->endDate)->endOfDay()
+        : Carbon::today()->endOfDay();
+
+    Log::debug('SessionControlWidget filters', [
+        'startDate' => $this->startDate,
+        'endDate' => $this->endDate,
+        'selectedUser' => $this->selectedUser,
+        'logged_in_user' => $user?->id,
+    ]);
+
+    $query = WorkSession::query()
+        ->with('user')
+        ->where('is_active', true)
+        ->whereBetween('start_time', [
+            $filterStartDate,
+            $filterEndDate,
         ]);
 
-        $query = WorkSession::query()
-            ->with('user')
-            ->where('is_active', true)
-            ->whereBetween('start_time', [$filterStartDate, $filterEndDate])
-            ->when($this->selectedUser, fn ($q) => $q->where('user_id', $this->selectedUser))
-            ->orderByDesc('start_time');
+    /*
+    |--------------------------------------------------------------------------
+    | DATA SOURCE
+    |--------------------------------------------------------------------------
+    | Admin/User default => apna data
+    | Admin filter select kare => selected user ka data
+    */
+    if (! empty($this->selectedUser)) {
 
-        $sessions = $query->get();
+        $query->where('user_id', $this->selectedUser);
 
-        $mappedSessions = $sessions->map(function ($session) {
-            return [
-                'user_name' => $session->user?->name ?? 'Unknown',
-                'start_time' => $session->start_time,
-                'duration' => $session->duration_text,
-                'hours' => $session->duration_hours,
-            ];
-        });
+    } else {
+
+        $query->where('user_id', $user->id);
+    }
+
+    $sessions = $query
+        ->orderByDesc('start_time')
+        ->get();
+
+    $mappedSessions = $sessions->map(function ($session) {
 
         return [
-            'activeSessions' => $mappedSessions,
-            'activeCount' => $mappedSessions->count(),
+            'user_name' => $session->user?->name ?? 'Unknown',
+            'start_time' => $session->start_time,
+            'duration' => $session->duration_text,
+            'hours' => $session->duration_hours,
         ];
-    }
+    });
+
+    return [
+        'activeSessions' => $mappedSessions,
+        'activeCount' => $mappedSessions->count(),
+    ];
+}
 }
