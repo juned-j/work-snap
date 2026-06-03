@@ -14,7 +14,7 @@ trait UserDataScope
 
             Log::info('UserDataScope Triggered');
 
-            if (!auth()->check()) {
+            if (! auth()->check()) {
 
                 Log::warning('Auth check failed');
 
@@ -29,20 +29,38 @@ trait UserDataScope
             Log::info('Authenticated User', [
                 'id' => $user->id,
                 'email' => $user->email,
-                'role' => $user->role?->name,
+                'role' => $user->role?->name ?? null,
                 'table' => $table,
             ]);
 
-            // only filter if user_id exists
-            if (Schema::hasColumn($table, 'user_id')) {
+            // Only apply filter on tables having user_id column
+            if (! Schema::hasColumn($table, 'user_id')) {
+                return;
+            }
 
-                $builder->where($table . '.user_id', $user->id);
-
-                Log::info('Applied strict user filter', [
+            /**
+             * Admin can see all records
+             * Adjust role name if your role is different
+             */
+            if (
+                $user->role?->name === 'Admin' ||
+                $user->role?->name === 'admin'
+            ) {
+                Log::info('Admin detected - skipping user filter', [
                     'user_id' => $user->id,
                     'table' => $table,
                 ]);
+
+                return;
             }
+
+            // Normal users can only see their own data
+            $builder->where($table . '.user_id', $user->id);
+
+            Log::info('Applied strict user filter', [
+                'user_id' => $user->id,
+                'table' => $table,
+            ]);
         });
     }
 }
