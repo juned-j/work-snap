@@ -38,82 +38,84 @@ class ScreenshotActivityWidget extends Widget
         $this->selectedUser = $filters['selectedUser'] ?? $this->selectedUser;
     }
 
-    protected function getViewData(): array
-    {
-        $user = auth()->user();
+   protected function getViewData(): array
+{
+    $user = auth()->user();
 
-        // Parse dates
-        $filterStartDate = $this->startDate ? Carbon::parse($this->startDate)->startOfDay() : Carbon::today()->startOfDay();
-        $filterEndDate = $this->endDate ? Carbon::parse($this->endDate)->endOfDay() : Carbon::today()->endOfDay();
+    // Parse dates
+    $filterStartDate = $this->startDate
+        ? Carbon::parse($this->startDate)->startOfDay()
+        : Carbon::today()->startOfDay();
 
-        Log::debug('ScreenshotActivityWidget filters', [
-            'startDate' => $this->startDate,
-            'endDate' => $this->endDate,
-            'selectedUser' => $this->selectedUser,
-        ]);
+    $filterEndDate = $this->endDate
+        ? Carbon::parse($this->endDate)->endOfDay()
+        : Carbon::today()->endOfDay();
 
-        /*
-        |--------------------------------------------------------------------------
-        | BASE QUERY - with proper relationships
-        |--------------------------------------------------------------------------
-        */
-        $query = Screenshot::query()
-            ->with(['user', 'session'])
-            ->whereNotNull('session_id');
+    Log::debug('ScreenshotActivityWidget filters', [
+        'startDate' => $this->startDate,
+        'endDate' => $this->endDate,
+        'selectedUser' => $this->selectedUser,
+        'logged_in_user' => $user?->id,
+    ]);
 
-        Log::debug('ScreenshotActivityWidget baseQuery', [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-        ]);
+    $query = Screenshot::query()
+        ->with(['user', 'session'])
+        ->whereNotNull('session_id');
 
-        /*
-        |--------------------------------------------------------------------------
-        | ROLE BASED ACCESS & USER FILTERING
-        |--------------------------------------------------------------------------
-        */
-        if ($user->canViewAll()) {
-            if ($this->selectedUser) {
-                $query->where('user_id', $this->selectedUser);
-            }
-        } else {
-            $query->where('user_id', $user->id);
-        }
+    /*
+    |--------------------------------------------------------------------------
+    | DATA SOURCE
+    |--------------------------------------------------------------------------
+    | Admin/User default => apna data
+    | Admin filter select kare => selected user ka data
+    */
+    if (! empty($this->selectedUser)) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | DATE RANGE FILTERING
-        |--------------------------------------------------------------------------
-        */
-        $query->whereBetween('captured_at', [$filterStartDate, $filterEndDate]);
+        $query->where('user_id', $this->selectedUser);
 
-        /*
-        |--------------------------------------------------------------------------
-        | RECENT SCREENSHOTS
-        |--------------------------------------------------------------------------
-        */
-        $recentScreenshots = (clone $query)
-            ->orderByDesc('captured_at')
-            ->limit(6)
-            ->get();
+    } else {
 
-        /*
-        |--------------------------------------------------------------------------
-        | TODAY COUNT
-        |--------------------------------------------------------------------------
-        */
-        $todayCount = (clone $query)->count();
-
-        /*
-        |--------------------------------------------------------------------------
-        | LAST SCREENSHOT
-        |--------------------------------------------------------------------------
-        */
-        $lastScreenshot = $recentScreenshots->first();
-
-        return [
-            'todayCount' => $todayCount,
-            'recentScreenshots' => $recentScreenshots,
-            'lastScreenshot' => $lastScreenshot,
-        ];
+        $query->where('user_id', $user->id);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DATE RANGE FILTERING
+    |--------------------------------------------------------------------------
+    */
+    $query->whereBetween('captured_at', [
+        $filterStartDate,
+        $filterEndDate,
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | RECENT SCREENSHOTS
+    |--------------------------------------------------------------------------
+    */
+    $recentScreenshots = (clone $query)
+        ->orderByDesc('captured_at')
+        ->limit(6)
+        ->get();
+
+    /*
+    |--------------------------------------------------------------------------
+    | TODAY COUNT
+    |--------------------------------------------------------------------------
+    */
+    $todayCount = (clone $query)->count();
+
+    /*
+    |--------------------------------------------------------------------------
+    | LAST SCREENSHOT
+    |--------------------------------------------------------------------------
+    */
+    $lastScreenshot = $recentScreenshots->first();
+
+    return [
+        'todayCount' => $todayCount,
+        'recentScreenshots' => $recentScreenshots,
+        'lastScreenshot' => $lastScreenshot,
+    ];
+}
 }
