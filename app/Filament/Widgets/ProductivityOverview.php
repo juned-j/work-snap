@@ -107,22 +107,23 @@ class ProductivityOverview extends BaseWidget
         | BASE QUERY
         |--------------------------------------------------------------------------
         */
-        $baseQuery = WorkSession::query();
+       $baseQuery = WorkSession::query();
 
-        // Selected user filter
-        if ($this->selectedUser) {
+/*
+|--------------------------------------------------------------------------
+| DATA SOURCE
+|--------------------------------------------------------------------------
+| Admin/User default => apna data
+| Admin filter select kare => selected user ka data
+*/
+if (! empty($this->selectedUser)) {
 
-            $baseQuery->where('user_id', $this->selectedUser);
+    $baseQuery->where('user_id', $this->selectedUser);
 
-        } elseif (! $user->canViewAll()) {
+} else {
 
-            $baseQuery->where('user_id', $user->id);
-        }
-
-        Log::debug('ProductivityOverview query', [
-            'sql' => $baseQuery->toSql(),
-            'bindings' => $baseQuery->getBindings(),
-        ]);
+    $baseQuery->where('user_id', $user->id);
+}
 
         /*
         |--------------------------------------------------------------------------
@@ -187,14 +188,11 @@ class ProductivityOverview extends BaseWidget
                 ]);
             }
         ])
-            ->when(
-                $this->selectedUser,
-                fn($q) => $q->where('id', $this->selectedUser)
-            )
-            ->when(
-                ! $user->canViewAll(),
-                fn($q) => $q->where('id', $user->id)
-            )
+           ->when(
+    ! empty($this->selectedUser),
+    fn($q) => $q->where('id', $this->selectedUser),
+    fn($q) => $q->where('id', $user->id)
+)
             ->whereHas('workSessions', function ($q) use (
                 $filterStartDate,
                 $filterEndDate
